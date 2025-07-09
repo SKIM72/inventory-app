@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>재고 실사</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>재고 실사</h1>
+        </header>
+
+        <main>
+            <div class="input-group">
+                <label for="location-input">1. 로케이션</label>
+                <div class="input-with-button">
+                    <input type="text" id="location-input" list="location-list" placeholder="로케이션 입력 또는 선택">
+                    <button id="location-submit-button">입력</button>
+                </div>
+                <datalist id="location-list"></datalist>
+            </div>
+
+            <div class="input-group">
+                <label for="barcode-input">2. 바코드</label>
+                <div class="input-with-button">
+                    <input type="text" id="barcode-input" placeholder="바코드 스캔 또는 입력..." disabled>
+                    <button id="barcode-submit-button">입력</button>
+                </div>
+            </div>
+
+            <div class="option-group">
+                <input type="checkbox" id="multiple-quantity-checkbox">
+                <label for="multiple-quantity-checkbox">복수 수량 입력</label>
+            </div>
+        </main>
+
+        <footer>
+            <div id="progress-container">
+                <div>총 전산: <span id="total-expected">0</span></div>
+                <div>총 실사: <span id="total-actual">0</span></div>
+                <div>진척도: <span id="progress-percent">0.00%</span></div>
+            </div>
+            <button id="undo-button" class="secondary-button">마지막 작업 되돌리기</button>
+            <div id="status-message">
+                <p>로케이션을 선택하세요.</p>
+            </div>
+        </footer>
+    </div>
+    
+    <div id="scan-results-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
