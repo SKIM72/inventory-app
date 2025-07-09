@@ -9,7 +9,7 @@ const locationSubmitButton = document.getElementById('location-submit-button');
 const barcodeInput = document.getElementById('barcode-input');
 const barcodeSubmitButton = document.getElementById('barcode-submit-button');
 const multipleQuantityCheckbox = document.getElementById('multiple-quantity-checkbox');
-const undoButton = document.getElementById('undo-button');
+const resetButton = document.getElementById('reset-quantity-button');
 const statusMessage = document.getElementById('status-message');
 const resultsContainer = document.getElementById('scan-results-container');
 const totalExpectedEl = document.getElementById('total-expected');
@@ -17,7 +17,7 @@ const totalActualEl = document.getElementById('total-actual');
 const progressPercentEl = document.getElementById('progress-percent');
 
 // 효과음 오디오 객체 생성
-const beepSound = new Audio('SoundFile.wav');
+const beepSound = new Audio('beep.mp3');
 
 let validLocations = [];
 
@@ -215,10 +215,8 @@ async function handleBarcodeScan() {
             if (insertError) throw insertError;
             statusMessage.textContent = `[${barcode}] ${qty}개 신규 등록 완료`;
         }
-        
         statusMessage.style.color = 'green';
-        beepSound.play(); // 성공 시 효과음 재생
-        
+        beepSound.play();
         await displayLocationScans(location);
         await updateGlobalProgress();
 
@@ -232,51 +230,40 @@ async function handleBarcodeScan() {
     }
 }
 
-async function handleUndo() {
+async function handleResetQuantity() {
     const location = locationInput.value.trim();
     if (!location) {
-        statusMessage.textContent = '되돌릴 작업을 위해 로케이션을 먼저 선택해주세요.';
-        statusMessage.style.color = 'red';
+        alert('초기화할 로케이션을 먼저 선택해주세요.');
+        return;
+    }
+
+    if (!confirm(`정말로 로케이션 [${location}]의 모든 실사수량을 0으로 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
         return;
     }
 
     try {
-        const { data: lastScan, error: findError } = await supabaseClient
-            .from('inventory_scans')
-            .select('*')
-            .eq('location_code', location)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-
-        if (findError || !lastScan) {
-            statusMessage.textContent = '되돌릴 작업이 없습니다.';
-            statusMessage.style.color = 'orange';
-            return;
-        }
-
-        const currentQty = lastScan.quantity || 0;
-        if (currentQty > 0) {
-            const newQuantity = currentQty - 1;
-            const { error: updateError } = await supabaseClient
-                .from('inventory_scans')
-                .update({ quantity: newQuantity })
-                .eq('id', lastScan.id);
-            if (updateError) throw updateError;
-            statusMessage.textContent = `[${lastScan.barcode}] 수량을 1 감소시켰습니다. (현재: ${newQuantity})`;
-        } else {
-            statusMessage.textContent = `[${lastScan.barcode}] 수량이 0이라 더 이상 줄일 수 없습니다.`;
-        }
+        statusMessage.textContent = `[${location}] 초기화 진행 중...`;
         statusMessage.style.color = 'orange';
 
-    } catch (error) {
-        console.error('되돌리기 실패:', error);
-        statusMessage.textContent = `오류: ${error.message}`;
-        statusMessage.style.color = 'red';
-    } finally {
+        const { error } = await supabaseClient
+            .from('inventory_scans')
+            .update({ quantity: 0 })
+            .eq('location_code', location);
+
+        if (error) throw error;
+
+        alert(`[${location}] 로케이션의 실사수량이 모두 0으로 초기화되었습니다.`);
+        statusMessage.textContent = `[${location}] 초기화 완료.`;
+        statusMessage.style.color = 'green';
+        
         await displayLocationScans(location);
         await updateGlobalProgress();
-        barcodeInput.focus();
+
+    } catch (error) {
+        console.error('초기화 실패:', error);
+        alert('초기화 작업 중 오류가 발생했습니다.');
+        statusMessage.textContent = `오류: ${error.message}`;
+        statusMessage.style.color = 'red';
     }
 }
 
@@ -285,7 +272,7 @@ locationSubmitButton.addEventListener('click', selectLocation);
 locationInput.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), selectLocation()));
 barcodeSubmitButton.addEventListener('click', handleBarcodeScan);
 barcodeInput.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), handleBarcodeScan()));
-undoButton.addEventListener('click', handleUndo);
+resetButton.addEventListener('click', handleResetQuantity);
 
 // 페이지가 로딩되면 바로 실행
 async function init() {

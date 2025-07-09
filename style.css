@@ -2,6 +2,7 @@
     --primary-color: #007bff;
     --secondary-color: #6c757d;
     --success-color: #28a745;
+    --danger-color: #dc3545;
     --light-gray: #f8f9fa;
     --dark-gray: #343a40;
 }
@@ -114,6 +115,21 @@ input[type="text"] {
 }
 .secondary-button:hover {
     background-color: #5a6268;
+}
+
+.danger-button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: var(--danger-color);
+    color: white;
+}
+.danger-button:hover {
+    background-color: #c82333;
 }
 
 footer {
