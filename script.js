@@ -17,7 +17,7 @@ const totalActualEl = document.getElementById('total-actual');
 const progressPercentEl = document.getElementById('progress-percent');
 
 // 효과음 오디오 객체 생성
-const beepSound = new Audio('beep.mp3');
+const beepSound = new Audio('SoundFile.wav');
 
 let validLocations = [];
 
