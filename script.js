@@ -4,20 +4,21 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // HTML 요소 가져오기
 const locationInput = document.getElementById('location-input');
-const locationList = document.getElementById('location-list');
 const locationSubmitButton = document.getElementById('location-submit-button');
-const barcodeInput = document.getElementById('barcode-input');
+const barcodeInput = document.getElementById('barcode-input');1
 const barcodeSubmitButton = document.getElementById('barcode-submit-button');
 const multipleQuantityCheckbox = document.getElementById('multiple-quantity-checkbox');
 const resetButton = document.getElementById('reset-quantity-button');
+const refreshButton = document.getElementById('refresh-button');
 const statusMessage = document.getElementById('status-message');
 const resultsContainer = document.getElementById('scan-results-container');
 const totalExpectedEl = document.getElementById('total-expected');
 const totalActualEl = document.getElementById('total-actual');
 const progressPercentEl = document.getElementById('progress-percent');
 
-// 효과음 오디오 객체 생성
-const beepSound = new Audio('SoundFile.wav');
+// ✅ 효과음 오디오 객체 생성
+const beepSound = new Audio('SoundFile.wav'); // ✅ 정상 효과음
+const errorSound = new Audio('error.wav'); // ✅ 오류 효과음
 
 let validLocations = [];
 
@@ -29,12 +30,6 @@ async function loadLocations() {
         return;
     }
     validLocations = data.map(location => location.location_code);
-    locationList.innerHTML = '';
-    validLocations.forEach(locationCode => {
-        const option = document.createElement('option');
-        option.value = locationCode;
-        locationList.appendChild(option);
-    });
 }
 
 async function displayLocationScans(locationCode) {
@@ -134,6 +129,7 @@ function selectLocation() {
     } else {
         statusMessage.textContent = '존재하지 않는 로케이션입니다. 다시 입력하세요.';
         statusMessage.style.color = 'red';
+        errorSound.play(); // ✅ 오류 효과음 재생
         locationInput.select();
         barcodeInput.disabled = true;
     }
@@ -168,6 +164,7 @@ async function handleBarcodeScan() {
         if (!product) {
             statusMessage.textContent = '존재하지 않는 상품입니다. 다시 입력하세요.';
             statusMessage.style.color = 'red';
+            errorSound.play(); // ✅ 오류 효과음 재생
             barcodeInput.value = '';
             barcodeInput.focus();
             return;
@@ -273,6 +270,10 @@ locationInput.addEventListener('keydown', (e) => e.key === 'Enter' && (e.prevent
 barcodeSubmitButton.addEventListener('click', handleBarcodeScan);
 barcodeInput.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), handleBarcodeScan()));
 resetButton.addEventListener('click', handleResetQuantity);
+refreshButton.addEventListener('click', () => {
+    location.reload();
+});
+
 
 // 페이지가 로딩되면 바로 실행
 async function init() {
