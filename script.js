@@ -5,7 +5,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // HTML 요소 가져오기
 const locationInput = document.getElementById('location-input');
 const locationSubmitButton = document.getElementById('location-submit-button');
-const barcodeInput = document.getElementById('barcode-input');1
+const barcodeInput = document.getElementById('barcode-input');
 const barcodeSubmitButton = document.getElementById('barcode-submit-button');
 const multipleQuantityCheckbox = document.getElementById('multiple-quantity-checkbox');
 const resetButton = document.getElementById('reset-quantity-button');
@@ -23,14 +23,43 @@ const errorSound = new Audio('error.wav'); // ✅ 오류 효과음
 let validLocations = [];
 
 async function loadLocations() {
-    const { data, error } = await supabaseClient.from('locations').select('location_code');
-    if (error) {
+    console.log('모든 로케이션 정보를 불러옵니다...');
+    let allLocations = [];
+    let page = 0;
+    const pageSize = 1000; // Supabase의 기본 제한과 동일한 크기로 페이지를 나눔
+
+    try {
+        while (true) {
+            const { data, error } = await supabaseClient
+                .from('locations')
+                .select('location_code')
+                .range(page * pageSize, (page + 1) * pageSize - 1); // 페이지 단위로 데이터 요청
+
+            if (error) {
+                throw error;
+            }
+
+            if (data.length > 0) {
+                allLocations = allLocations.concat(data);
+            }
+
+            // 더 이상 가져올 데이터가 없으면 반복 중지
+            if (data.length < pageSize) {
+                break;
+            }
+
+            page++; // 다음 페이지로 이동
+        }
+
+        validLocations = allLocations.map(location => location.location_code);
+        console.log(`${validLocations.length}개의 로케이션 정보를 성공적으로 불러왔습니다.`);
+
+    } catch (error) {
         console.error('로케이션 정보 로딩 실패:', error);
         alert('데이터베이스 연결에 실패했습니다. F12를 눌러 콘솔을 확인하세요.');
-        return;
     }
-    validLocations = data.map(location => location.location_code);
 }
+
 
 async function displayLocationScans(locationCode) {
     if (!locationCode) {
@@ -50,7 +79,7 @@ async function displayLocationScans(locationCode) {
         if (error) throw error;
 
         if (data.length === 0) {
-            resultsContainer.innerHTML = '<p>해당 로케이션에 스캔된 데이터가 없습니다.</p>';
+            resultsContainer.innerHTML = '<p class="no-data-message">해당 로케이션에 스캔된 데이터가 없습니다.</p>';
             return;
         }
 

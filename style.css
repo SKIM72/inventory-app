@@ -231,3 +231,10 @@ input[type="text"]:focus {
 }
 .diff-plus { color: var(--primary-color); font-weight: 700; }
 .diff-minus { color: var(--danger-color); font-weight: 700; }
+
+/* 스캔 데이터가 없을 때 메시지 스타일 */
+#scan-results-container .no-data-message {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text-secondary-color);
+}
