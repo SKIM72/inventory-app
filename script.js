@@ -60,9 +60,9 @@ async function displayLocationScans(locationCode) {
                     <tr>
                         <th>상품명</th>
                         <th>바코드</th>
-                        <th>전산수량</th>
-                        <th>실사수량</th>
-                        <th>차이수량</th>
+                        <th>전산</th>
+                        <th>실사</th>
+                        <th>차이</th>
                     </tr>
                 </thead>
                 <tbody>
