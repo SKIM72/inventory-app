@@ -62,10 +62,11 @@ header h1 {
     box-shadow: 0 4px 12px var(--shadow-color);
 }
 
-/* ✅ 입력창을 한 줄로 정렬하는 스타일 */
+/* 입력창을 한 줄로 정렬하는 스타일 */
 .input-row {
     display: flex;
-    gap: 1.5rem; /* 두 입력 그룹 사이의 간격 */
+    flex-direction: column; /* 세로로 정렬 */
+    gap: 1rem; /* 두 입력 그룹 사이의 간격 */
     margin-bottom: 1rem;
 }
 
@@ -117,7 +118,7 @@ input[type="text"]:focus {
     border-bottom-right-radius: 8px;
     cursor: pointer;
     transition: background-color 0.2s;
-    white-space: nowrap; /* ✅ 버튼 글씨가 줄바꿈되지 않도록 설정 */
+    white-space: nowrap; /* 버튼 글씨가 줄바꿈되지 않도록 설정 */
 }
 #location-submit-button { background-color: var(--primary-color); }
 #location-submit-button:hover { background-color: #0059b3; }
@@ -162,7 +163,7 @@ input[type="text"]:focus {
 .secondary-button { background-color: var(--secondary-color); color: white; }
 .secondary-button:hover { background-color: #6c757d; }
 
-/* ✅ 진척도 영역 높이 줄이기 (패딩 조정) */
+/* 진척도 영역 높이 줄이기 (패딩 조정) */
 .progress-card {
     display: flex;
     justify-content: space-around;
@@ -217,12 +218,12 @@ input[type="text"]:focus {
     border-bottom: 1px solid var(--border-color);
     font-size: 0.9rem;
 }
-/* ✅ 테이블 헤더 폰트 크기 줄이기 */
+/* 테이블 헤더 폰트 크기 줄이기 */
 .results-table th {
     background-color: #f9f9fb;
     font-weight: 500;
     color: var(--text-secondary-color);
-    font-size: 0.6rem;
+    font-size: 0.8rem;
     text-align: center;
 }
 .results-table tr:last-child td {
