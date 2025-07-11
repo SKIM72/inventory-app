@@ -1,199 +1,232 @@
 :root {
-    --primary-color: #007bff;
-    --secondary-color: #6c757d;
-    --success-color: #28a745;
-    --danger-color: #dc3545;
-    --light-gray: #f8f9fa;
-    --dark-gray: #343a40;
+    --primary-color: #007aff;
+    --secondary-color: #8e8e93;
+    --success-color: #34c759;
+    --danger-color: #ff3b30;
+    --background-color: #f2f2f7;
+    --card-background-color: #ffffff;
+    --text-primary-color: #1c1c1e;
+    --text-secondary-color: #636366;
+    --border-color: #e5e5ea;
+    --shadow-color: rgba(0, 0, 0, 0.05);
+}
+
+* {
+    box-sizing: border-box;
 }
 
 html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background-color: var(--light-gray);
+    font-family: 'Noto Sans KR', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-primary-color);
 }
 
-.container {
-    background-color: white;
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
+.app-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
 }
 
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    padding: 1rem 0.5rem;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-title .material-icons {
+    font-size: 2.2rem;
+    color: var(--primary-color);
 }
 
 header h1 {
     margin: 0;
-    color: var(--dark-gray);
-    font-size: 1.8rem; 
+    font-size: 1.8rem;
+    font-weight: 700;
 }
 
+.card {
+    background-color: var(--card-background-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+/* ✅ 입력창을 한 줄로 정렬하는 스타일 */
 .input-row {
     display: flex;
-    gap: 1rem;
+    gap: 1.5rem; /* 두 입력 그룹 사이의 간격 */
     margin-bottom: 1rem;
 }
 
 .input-group {
-    flex: 1;
-    margin-bottom: 0;
+    flex: 1; /* 각 그룹이 동일한 너비를 차지하도록 설정 */
+    min-width: 0; /* flex item이 줄어들 수 있도록 설정 */
 }
+
 
 .input-group label {
     display: block;
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary-color);
     margin-bottom: 0.5rem;
-}
-
-input[type="text"] {
-    width: 100%;
-    padding: 0.9rem;
-    font-size: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    box-sizing: border-box;
-}
-
-.option-group {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.option-group input[type="checkbox"] {
-    margin-right: 0.5rem;
-    width: 1.2rem;
-    height: 1.2rem;
 }
 
 .input-with-button {
     display: flex;
 }
 
+input[type="text"] {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--background-color);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
 .input-with-button input {
-    flex-grow: 1;
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
+    border-right: none;
 }
 
 .input-with-button button {
     padding: 0 1.2rem;
     font-size: 1rem;
-    font-weight: 600;
-    background-color: var(--primary-color);
+    font-weight: 500;
     color: white;
     border: none;
     border-top-right-radius: 8px;
     border-bottom-right-radius: 8px;
     cursor: pointer;
-    flex-shrink: 0;
+    transition: background-color 0.2s;
+    white-space: nowrap; /* ✅ 버튼 글씨가 줄바꿈되지 않도록 설정 */
 }
-.input-with-button button:hover {
-    background-color: #0056b3;
-}
+#location-submit-button { background-color: var(--primary-color); }
+#location-submit-button:hover { background-color: #0059b3; }
+#barcode-submit-button { background-color: var(--success-color); }
+#barcode-submit-button:hover { background-color: #28a445; }
 
-#barcode-submit-button {
-    background-color: var(--success-color);
-}
 
-#barcode-submit-button:hover {
-    background-color: #218838;
+.option-group {
+    display: flex;
+    align-items: center;
+    padding-top: 0.5rem;
+}
+.option-group input[type="checkbox"] {
+    width: 1.2rem;
+    height: 1.2rem;
+    margin-right: 0.75rem;
+}
+.option-group label {
+    font-size: 1rem;
+    color: var(--text-secondary-color);
 }
 
 .header-button-group {
     display: flex;
     gap: 0.5rem;
 }
-
 .header-button {
     width: auto;
-    padding: 0.6rem 1rem;
+    padding: 0.5rem 1rem;
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 500;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    flex-shrink: 0;
+    transition: background-color 0.2s, transform 0.1s;
 }
+.header-button:active {
+    transform: scale(0.95);
+}
+.danger-button { background-color: var(--danger-color); color: white; }
+.danger-button:hover { background-color: #d32f2f; }
+.secondary-button { background-color: var(--secondary-color); color: white; }
+.secondary-button:hover { background-color: #6c757d; }
 
-.danger-button {
-    background-color: var(--danger-color);
-    color: white;
-}
-.danger-button:hover {
-    background-color: #c82333;
-}
-
-.secondary-button {
-    background-color: var(--secondary-color);
-    color: white;
-}
-.secondary-button:hover {
-    background-color: #5a6268;
-}
-
-footer {
-    margin-top: auto;
-}
-
-#progress-container {
+/* ✅ 진척도 영역 높이 줄이기 (패딩 조정) */
+.progress-card {
     display: flex;
     justify-content: space-around;
-    padding: 0.8rem;
-    background-color: #e9ecef;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
+    align-items: center;
+    text-align: center;
+    padding: 0.75rem 1.5rem;
 }
-
-#progress-container span {
+.progress-item {
+    display: flex;
+    flex-direction: column;
+}
+.progress-item span {
+    font-size: 0.8rem;
+    color: var(--text-secondary-color);
+    margin-bottom: 0.25rem;
+}
+.progress-item strong {
+    font-size: 1.1rem;
+    font-weight: 700;
     color: var(--primary-color);
 }
 
 #status-message {
     text-align: center;
     padding: 0.8rem;
-    background-color: var(--light-gray);
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.9rem;
-    margin-top: 1rem;
+    margin-top: 1.5rem;
+    background-color: var(--light-gray);
+    color: var(--text-secondary-color);
 }
+#status-message[style*="color: red"] { background-color: #ffebee; color: var(--danger-color); }
+#status-message[style*="color: green"] { background-color: #e8f5e9; color: var(--success-color); }
+#status-message[style*="color: blue"] { background-color: #e3f2fd; color: var(--primary-color); }
 
 #scan-results-container {
-    padding: 0 1.5rem 1.5rem 1.5rem;
-    background-color: white;
+    background-color: var(--card-background-color);
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 4px 12px var(--shadow-color);
+    margin-top: 1.5rem;
 }
 
 .results-table {
     width: 100%;
     border-collapse: collapse;
+}
+.results-table th, .results-table td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
     font-size: 0.9rem;
 }
-
-.results-table th, .results-table td {
-    border: 1px solid #ddd;
-    padding: 0.6rem;
-    text-align: left;
-}
-
+/* ✅ 테이블 헤더 폰트 크기 줄이기 */
 .results-table th {
-    background-color: #f2f2f2;
+    background-color: #f9f9fb;
+    font-weight: 500;
+    color: var(--text-secondary-color);
+    font-size: 0.6rem;
+    text-align: center;
 }
-
-.diff-plus {
-    color: blue;
-    font-weight: bold;
+.results-table tr:last-child td {
+    border-bottom: none;
 }
-.diff-minus {
-    color: red;
-    font-weight: bold;
-}
+.diff-plus { color: var(--primary-color); font-weight: 700; }
+.diff-minus { color: var(--danger-color); font-weight: 700; }
