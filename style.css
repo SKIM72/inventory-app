@@ -24,6 +24,53 @@ html, body {
     color: var(--text-primary-color);
 }
 
+/* 로그인/회원가입 페이지 전용 */
+body.login-page {
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-page .app-container {
+    max-width: 400px;
+    width: 100%;
+}
+
+.login-page .card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 2.5rem;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+.login-page .input-group label {
+    font-weight: 700;
+    color: #333;
+}
+
+.login-page input[type="email"],
+.login-page input[type="password"] {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    font-size: 1rem;
+}
+
+.login-page a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+.login-page a:hover {
+    text-decoration: underline;
+}
+
+
+/* --- 기존 앱 스타일 --- */
 .app-container {
     max-width: 800px;
     margin: 0 auto;
@@ -199,7 +246,7 @@ input[type="text"]:focus, input[type="number"]:focus {
     border-radius: 8px;
     font-size: 0.9rem;
     margin-top: 1.5rem;
-    background-color: var(--light-gray);
+    background-color: #f8f9fa;
     color: var(--text-secondary-color);
 }
 #status-message[style*="color: red"] { background-color: #ffebee; color: var(--danger-color); }
@@ -327,28 +374,37 @@ input[type="text"]:focus, input[type="number"]:focus {
     background-color: #dcdce0;
 }
 
+/* 채널 선택 버튼 스타일 */
 .channel-button {
     display: block;
     width: 100%;
-    padding: 1.5rem;
+    padding: 1rem;
     margin-bottom: 1rem;
-    font-size: 1.2rem;
-    font-weight: 500;
+    font-size: 1.1rem;
+    font-weight: 700;
     text-align: center;
-    color: var(--text-primary-color);
-    background-color: var(--card-background-color);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    color: #ffffff;
+    background: var(--primary-color);
+    border: none;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
-    box-shadow: 0 2px 4px var(--shadow-color);
+    transition: background-color 0.2s, transform 0.1s;
+    box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
 }
 
 .channel-button:hover {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
+    background: #0059b3;
 }
 
 .channel-button:active {
     transform: scale(0.98);
+}
+
+/* ✅ 실사 화면 로그아웃 버튼 보라색으로 변경 */
+#logout-button.secondary-button {
+    background-color: #8e44ad; /* 보라색 */
+}
+
+#logout-button.secondary-button:hover {
+    background-color: #7a3a95; /* 더 어두운 보라색 */
 }
