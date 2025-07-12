@@ -3,9 +3,11 @@ const supabaseClient = createClient('https://qjftovamkqhxaenueood.supabase.co', 
 
 // 로그인 상태 확인
 (async () => {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-        alert('로그인이 필요합니다.');
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    
+    if (error || !session || session.user.user_metadata.is_approved !== true) {
+        await supabaseClient.auth.signOut();
+        alert('로그인이 필요하거나, 승인되지 않은 계정입니다.');
         window.location.href = 'login.html';
     }
 })();
