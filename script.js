@@ -16,47 +16,92 @@ const totalExpectedEl = document.getElementById('total-expected');
 const totalActualEl = document.getElementById('total-actual');
 const progressPercentEl = document.getElementById('progress-percent');
 
+// ✅ 모달 관련 요소 가져오기
+const editModal = document.getElementById('edit-modal');
+const modalProductName = document.getElementById('modal-product-name');
+const modalBarcode = document.getElementById('modal-barcode');
+const modalQuantityInput = document.getElementById('modal-quantity-input');
+const modalSaveButton = document.getElementById('modal-save-button');
+const modalCancelButton = document.getElementById('modal-cancel-button');
+
 // ✅ 효과음 오디오 객체 생성
-const beepSound = new Audio('SoundFile.wav'); // ✅ 정상 효과음
-const errorSound = new Audio('error.wav'); // ✅ 오류 효과음
+const beepSound = new Audio('SoundFile.wav'); 
+const errorSound = new Audio('error.wav'); 
 
 let validLocations = [];
+let currentEditingScanId = null; // ✅ 현재 수정 중인 데이터의 ID 저장
 
 async function loadLocations() {
     console.log('모든 로케이션 정보를 불러옵니다...');
     let allLocations = [];
     let page = 0;
-    const pageSize = 1000; // Supabase의 기본 제한과 동일한 크기로 페이지를 나눔
+    const pageSize = 1000; 
 
     try {
         while (true) {
             const { data, error } = await supabaseClient
                 .from('locations')
                 .select('location_code')
-                .range(page * pageSize, (page + 1) * pageSize - 1); // 페이지 단위로 데이터 요청
+                .range(page * pageSize, (page + 1) * pageSize - 1); 
 
-            if (error) {
-                throw error;
-            }
-
-            if (data.length > 0) {
-                allLocations = allLocations.concat(data);
-            }
-
-            // 더 이상 가져올 데이터가 없으면 반복 중지
-            if (data.length < pageSize) {
-                break;
-            }
-
-            page++; // 다음 페이지로 이동
+            if (error) throw error;
+            if (data.length > 0) allLocations = allLocations.concat(data);
+            if (data.length < pageSize) break;
+            page++; 
         }
-
         validLocations = allLocations.map(location => location.location_code);
         console.log(`${validLocations.length}개의 로케이션 정보를 성공적으로 불러왔습니다.`);
 
     } catch (error) {
         console.error('로케이션 정보 로딩 실패:', error);
         alert('데이터베이스 연결에 실패했습니다. F12를 눌러 콘솔을 확인하세요.');
+    }
+}
+
+// ✅ 행 클릭 시 모달 열기
+function openEditModal(scan) {
+    currentEditingScanId = scan.id;
+    modalProductName.textContent = scan.products.product_name;
+    modalBarcode.textContent = `바코드: ${scan.products.barcode}`;
+    modalQuantityInput.value = scan.quantity;
+    editModal.style.display = 'flex';
+    modalQuantityInput.focus();
+    modalQuantityInput.select();
+}
+
+// ✅ 모달 닫기
+function closeEditModal() {
+    currentEditingScanId = null;
+    editModal.style.display = 'none';
+}
+
+// ✅ 수량 수정 저장
+async function saveQuantity() {
+    const newQuantity = parseInt(modalQuantityInput.value, 10);
+    if (isNaN(newQuantity) || newQuantity < 0) {
+        alert('유효한 수량을 입력하세요.');
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('inventory_scans')
+            .update({ quantity: newQuantity, created_at: new Date().toISOString() })
+            .eq('id', currentEditingScanId);
+
+        if (error) throw error;
+
+        statusMessage.textContent = '수량이 성공적으로 수정되었습니다.';
+        statusMessage.style.color = 'green';
+        closeEditModal();
+        // 데이터 다시 불러오기
+        await displayLocationScans(locationInput.value.trim());
+        await updateGlobalProgress();
+
+    } catch (error) {
+        console.error('수량 업데이트 실패:', error);
+        statusMessage.textContent = `오류: ${error.message}`;
+        statusMessage.style.color = 'red';
     }
 }
 
@@ -70,6 +115,7 @@ async function displayLocationScans(locationCode) {
         const { data, error } = await supabaseClient
             .from('inventory_scans')
             .select(`
+                id,
                 expected_quantity, 
                 quantity,
                 products ( product_name, barcode )
@@ -86,13 +132,7 @@ async function displayLocationScans(locationCode) {
         let tableHTML = `
             <table class="results-table">
                 <thead>
-                    <tr>
-                        <th>상품명</th>
-                        <th>바코드</th>
-                        <th>전산</th>
-                        <th>실사</th>
-                        <th>차이</th>
-                    </tr>
+                    <tr><th>상품명</th><th>바코드</th><th>전산</th><th>실사</th><th>차이</th></tr>
                 </thead>
                 <tbody>
         `;
@@ -104,9 +144,10 @@ async function displayLocationScans(locationCode) {
             let diffClass = '';
             if (diff > 0) diffClass = 'diff-plus';
             if (diff < 0) diffClass = 'diff-minus';
-
+            
+            // ✅ 각 행에 data-scan 속성으로 전체 데이터 저장
             tableHTML += `
-                <tr>
+                <tr data-scan='${JSON.stringify(item)}'>
                     <td>${item.products.product_name}</td>
                     <td>${item.products.barcode}</td>
                     <td>${expected}</td>
@@ -158,7 +199,7 @@ function selectLocation() {
     } else {
         statusMessage.textContent = '존재하지 않는 로케이션입니다. 다시 입력하세요.';
         statusMessage.style.color = 'red';
-        errorSound.play(); // ✅ 오류 효과음 재생
+        errorSound.play();
         locationInput.select();
         barcodeInput.disabled = true;
     }
@@ -193,7 +234,7 @@ async function handleBarcodeScan() {
         if (!product) {
             statusMessage.textContent = '존재하지 않는 상품입니다. 다시 입력하세요.';
             statusMessage.style.color = 'red';
-            errorSound.play(); // ✅ 오류 효과음 재생
+            errorSound.play(); 
             barcodeInput.value = '';
             barcodeInput.focus();
             return;
@@ -301,6 +342,24 @@ barcodeInput.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventD
 resetButton.addEventListener('click', handleResetQuantity);
 refreshButton.addEventListener('click', () => {
     location.reload();
+});
+
+// ✅ 테이블 행 클릭 이벤트 (이벤트 위임)
+resultsContainer.addEventListener('click', (e) => {
+    const row = e.target.closest('tr');
+    if (row && row.dataset.scan) {
+        const scanData = JSON.parse(row.dataset.scan);
+        openEditModal(scanData);
+    }
+});
+
+// ✅ 모달 이벤트 리스너
+modalSaveButton.addEventListener('click', saveQuantity);
+modalCancelButton.addEventListener('click', closeEditModal);
+modalQuantityInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        saveQuantity();
+    }
 });
 
 
