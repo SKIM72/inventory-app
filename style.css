@@ -322,3 +322,42 @@ input[type="text"]:focus, input[type="number"]:focus {
 .modal-button.secondary:hover {
     background-color: #dcdce0;
 }
+
+/* 채널 선택 버튼 스타일 */
+.channel-button {
+    display: block;
+    width: 100%;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    font-weight: 500;
+    text-align: center;
+    color: var(--text-primary-color);
+    background-color: var(--card-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+    box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.channel-button:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.channel-button:active {
+    transform: scale(0.98);
+}
+
+/* ✅ 헤더 버튼 내 아이콘 스타일 추가 */
+.header-button .material-icons {
+    font-size: 1.2rem;
+    vertical-align: middle;
+    margin-right: 4px;
+    margin-left: -4px; /* 왼쪽 여백 조절 */
+}
+
+.header-button span {
+    vertical-align: middle;
+}
