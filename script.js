@@ -1,15 +1,23 @@
-const SUPABASE_URL = 'https://qjftovamkqhxaenueood.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZnRvdmFta3FoeGFlbnVlb29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzQxMTgsImV4cCI6MjA2NzYxMDExOH0.qpMLaPEkMEmXeRg7193JqjFyUdntIxq3Q3kARUqGS18';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const { createClient } = supabase;
+const supabaseClient = createClient('https://qjftovamkqhxaenueood.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZnRvdmFta3FoeGFlbnVlb29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzQxMTgsImV4cCI6MjA2NzYxMDExOH0.qpMLaPEkMEmXeRg7193JqjFyUdntIxq3Q3kARUqGS18');
 
-// 1. 로컬 스토리지에서 선택된 채널 정보 가져오기
+// 로그인 상태 확인
+(async () => {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        alert('로그인이 필요합니다.');
+        window.location.href = 'login.html';
+    }
+})();
+
+// 로컬 스토리지에서 선택된 채널 정보 가져오기
 const selectedChannelId = localStorage.getItem('selectedChannelId');
 const selectedChannelName = localStorage.getItem('selectedChannelName');
 
-// 2. 채널 정보가 없으면 선택 페이지로 강제 이동
+// 채널 정보가 없으면 선택 페이지로 강제 이동
 if (!selectedChannelId) {
     alert('채널이 선택되지 않았습니다. 채널 선택 페이지로 이동합니다.');
-    window.location.href = 'index.html'; // channel.html이 이제 index.html임
+    window.location.href = 'index.html'; 
 }
 
 // HTML 요소 가져오기
@@ -21,6 +29,7 @@ const multipleQuantityCheckbox = document.getElementById('multiple-quantity-chec
 const resetButton = document.getElementById('reset-quantity-button');
 const refreshButton = document.getElementById('refresh-button');
 const changeChannelButton = document.getElementById('change-channel-button');
+const scannerLogoutButton = document.getElementById('logout-button');
 const statusMessage = document.getElementById('status-message');
 const resultsContainer = document.getElementById('scan-results-container');
 const totalExpectedEl = document.getElementById('total-expected');
@@ -40,7 +49,7 @@ const errorSound = new Audio('error.wav');
 let validLocations = [];
 let currentEditingScanId = null; 
 
-// 3. 페이지 제목에 현재 채널 이름 표시
+// 페이지 제목에 현재 채널 이름 표시
 document.querySelector('header h1').textContent = `재고 실사 (${selectedChannelName})`;
 
 
@@ -331,10 +340,22 @@ refreshButton.addEventListener('click', () => {
     location.reload();
 });
 
-// ✅ 채널 변경 버튼 이벤트 리스너 수정
 changeChannelButton.addEventListener('click', () => {
     if (confirm('채널 선택 화면으로 돌아가시겠습니까?')) {
-        window.location.href = 'index.html'; // channel.html 대신 index.html로 이동
+        window.location.href = 'index.html';
+    }
+});
+
+scannerLogoutButton.addEventListener('click', async () => {
+     if (confirm('로그아웃하시겠습니까?')) {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+            alert('로그아웃 실패: ' + error.message);
+        } else {
+            localStorage.removeItem('selectedChannelId');
+            localStorage.removeItem('selectedChannelName');
+            window.location.href = 'login.html';
+        }
     }
 });
 

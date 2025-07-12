@@ -1,10 +1,8 @@
-const SUPABASE_URL = 'https://qjftovamkqhxaenueood.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZnRvdmFta3FoeGFlbnVlb29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzQxMTgsImV4cCI6MjA2NzYxMDExOH0.qpMLaPEkMEmXeRg7193JqjFyUdntIxq3Q3kARUqGS18';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const { createClient } = supabase;
+const supabaseClient = createClient('https://qjftovamkqhxaenueood.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZnRvdmFta3FoeGFlbnVlb29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzQxMTgsImV4cCI6MjA2NzYxMDExOH0.qpMLaPEkMEmXeRg7193JqjFyUdntIxq3Q3kARUqGS18');
 
 const channelListContainer = document.getElementById('channel-list');
 
-// DB에서 채널 목록을 가져와 버튼으로 표시
 async function loadChannels() {
     try {
         const { data, error } = await supabaseClient.from('channels').select('*').order('id');
@@ -27,20 +25,16 @@ async function loadChannels() {
     }
 }
 
-// 버튼 클릭 시 채널 ID와 이름을 저장하고 재고 실사 페이지(main.html)로 이동
 channelListContainer.addEventListener('click', (e) => {
     if (e.target.classList.contains('channel-button')) {
         const channelId = e.target.dataset.id;
         const channelName = e.target.dataset.name;
         
-        // 브라우저의 로컬 스토리지에 선택한 채널 정보를 저장
         localStorage.setItem('selectedChannelId', channelId);
         localStorage.setItem('selectedChannelName', channelName);
         
-        // 재고 실사 페이지 주소를 'main.html'로 변경
         window.location.href = 'main.html';
     }
 });
 
-// 페이지 로드 시 채널 목록 불러오기 실행
 loadChannels();
