@@ -16,7 +16,7 @@ const totalExpectedEl = document.getElementById('total-expected');
 const totalActualEl = document.getElementById('total-actual');
 const progressPercentEl = document.getElementById('progress-percent');
 
-// ✅ 모달 관련 요소 가져오기
+// 모달 관련 요소 가져오기
 const editModal = document.getElementById('edit-modal');
 const modalProductName = document.getElementById('modal-product-name');
 const modalBarcode = document.getElementById('modal-barcode');
@@ -24,12 +24,12 @@ const modalQuantityInput = document.getElementById('modal-quantity-input');
 const modalSaveButton = document.getElementById('modal-save-button');
 const modalCancelButton = document.getElementById('modal-cancel-button');
 
-// ✅ 효과음 오디오 객체 생성
+// 효과음 오디오 객체 생성
 const beepSound = new Audio('SoundFile.wav'); 
 const errorSound = new Audio('error.wav'); 
 
 let validLocations = [];
-let currentEditingScanId = null; // ✅ 현재 수정 중인 데이터의 ID 저장
+let currentEditingScanId = null; // 현재 수정 중인 데이터의 ID 저장
 
 async function loadLocations() {
     console.log('모든 로케이션 정보를 불러옵니다...');
@@ -58,7 +58,7 @@ async function loadLocations() {
     }
 }
 
-// ✅ 행 클릭 시 모달 열기
+// 행 클릭 시 모달 열기
 function openEditModal(scan) {
     currentEditingScanId = scan.id;
     modalProductName.textContent = scan.products.product_name;
@@ -69,13 +69,13 @@ function openEditModal(scan) {
     modalQuantityInput.select();
 }
 
-// ✅ 모달 닫기
+// 모달 닫기
 function closeEditModal() {
     currentEditingScanId = null;
     editModal.style.display = 'none';
 }
 
-// ✅ 수량 수정 저장
+// ✅ 수량 수정 저장 함수 수정
 async function saveQuantity() {
     const newQuantity = parseInt(modalQuantityInput.value, 10);
     if (isNaN(newQuantity) || newQuantity < 0) {
@@ -91,9 +91,11 @@ async function saveQuantity() {
 
         if (error) throw error;
 
+        beepSound.play(); // ✅ 효과음 재생 추가
         statusMessage.textContent = '수량이 성공적으로 수정되었습니다.';
         statusMessage.style.color = 'green';
         closeEditModal();
+        
         // 데이터 다시 불러오기
         await displayLocationScans(locationInput.value.trim());
         await updateGlobalProgress();
@@ -145,7 +147,6 @@ async function displayLocationScans(locationCode) {
             if (diff > 0) diffClass = 'diff-plus';
             if (diff < 0) diffClass = 'diff-minus';
             
-            // ✅ 각 행에 data-scan 속성으로 전체 데이터 저장
             tableHTML += `
                 <tr data-scan='${JSON.stringify(item)}'>
                     <td>${item.products.product_name}</td>
@@ -344,7 +345,7 @@ refreshButton.addEventListener('click', () => {
     location.reload();
 });
 
-// ✅ 테이블 행 클릭 이벤트 (이벤트 위임)
+// 테이블 행 클릭 이벤트 (이벤트 위임)
 resultsContainer.addEventListener('click', (e) => {
     const row = e.target.closest('tr');
     if (row && row.dataset.scan) {
@@ -353,7 +354,7 @@ resultsContainer.addEventListener('click', (e) => {
     }
 });
 
-// ✅ 모달 이벤트 리스너
+// 모달 이벤트 리스너
 modalSaveButton.addEventListener('click', saveQuantity);
 modalCancelButton.addEventListener('click', closeEditModal);
 modalQuantityInput.addEventListener('keydown', (e) => {
