@@ -1,7 +1,7 @@
 const { createClient } = supabase;
 const supabaseClient = createClient('https://qjftovamkqhxaenueood.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZnRvdmFta3FoeGFlbnVlb29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzQxMTgsImV4cCI6MjA2NzYxMDExOH0.qpMLaPEkMEmXeRg7193JqjFyUdntIxq3Q3kARUqGS18');
 
-// 로그인 상태 확인
+// 로그인 및 '승인된 사용자' 권한 확인
 (async () => {
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     
@@ -11,6 +11,7 @@ const supabaseClient = createClient('https://qjftovamkqhxaenueood.supabase.co', 
         window.location.href = 'login.html';
     }
 })();
+
 
 // 로컬 스토리지에서 선택된 채널 정보 가져오기
 const selectedChannelId = localStorage.getItem('selectedChannelId');
@@ -222,10 +223,10 @@ function selectLocation() {
 
 async function handleBarcodeScan() {
     const location = locationInput.value;
-    const barcode = barcodeInput.value.trim();
+    const scannedCode = barcodeInput.value.trim();
 
-    if (!location || !barcode) {
-        statusMessage.textContent = '로케이션과 바코드를 모두 입력하세요!';
+    if (!location || !scannedCode) {
+        statusMessage.textContent = '로케이션과 바코드/상품코드를 모두 입력하세요!';
         statusMessage.style.color = 'red';
         return;
     }
@@ -233,21 +234,25 @@ async function handleBarcodeScan() {
     try {
         const { data: product, error: productError } = await supabaseClient
             .from('products')
-            .select('barcode')
-            .eq('barcode', barcode)
+            .select('product_code, barcode, product_name')
+            .or(`barcode.eq.${scannedCode},product_code.eq.${scannedCode}`)
             .eq('channel_id', selectedChannelId) 
+            .limit(1)
             .single();
 
-        if (productError && productError.code !== 'PGRST116') throw productError;
-
-        if (!product) {
-            statusMessage.textContent = '존재하지 않는 상품입니다. 다시 입력하세요.';
-            statusMessage.style.color = 'red';
-            errorSound.play(); 
-            barcodeInput.value = '';
-            barcodeInput.focus();
-            return;
+        if (productError) {
+             if (productError.code === 'PGRST116') {
+                statusMessage.textContent = '존재하지 않는 상품입니다. 다시 입력하세요.';
+                statusMessage.style.color = 'red';
+                errorSound.play(); 
+                barcodeInput.value = '';
+                barcodeInput.focus();
+                return;
+             }
+             throw productError;
         }
+
+        const barcode = product.barcode;
 
         let qty = 1;
 
