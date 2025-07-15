@@ -225,7 +225,10 @@ function setStatusMessage(message, type = 'info', playSound = true) {
 // 로케이션 처리
 async function handleLocationSubmit() {
     const locationCode = locationInput.value.trim().toUpperCase();
-    if (!locationCode) return;
+    if (!locationCode) {
+        setStatusMessage('로케이션을 입력하세요.', 'error');
+        return;
+    }
 
     if (validLocations.has(locationCode)) {
         setStatusMessage(`[${locationCode}] 로케이션이 선택되었습니다.`, 'success', false);
@@ -241,7 +244,10 @@ async function handleLocationSubmit() {
 // 바코드 스캔 처리
 async function handleBarcodeScan() {
     const scannedCode = barcodeInput.value.trim();
-    if (!scannedCode) return;
+    if (!scannedCode) {
+        setStatusMessage('바코드를 입력하세요.', 'error');
+        return;
+    }
 
     const locationCode = locationInput.value.trim().toUpperCase();
 
@@ -270,7 +276,18 @@ async function handleBarcodeScan() {
             throw scanError;
         }
 
-        const quantityToAdd = multipleQuantityCheckbox.checked ? (parseInt(prompt('수량을 입력하세요:', '1'), 10) || 1) : 1;
+        let quantityToAdd = 1;
+        if (multipleQuantityCheckbox.checked) {
+            const quantityInput = prompt('수량을 입력하세요:', '1');
+
+            if (quantityInput === null) {
+                barcodeInput.value = ''; 
+                return; 
+            }
+            
+            quantityToAdd = parseInt(quantityInput, 10) || 1;
+        }
+
 
         if (existingScan) {
             const newQuantity = existingScan.quantity + quantityToAdd;
