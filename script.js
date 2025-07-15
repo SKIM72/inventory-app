@@ -171,6 +171,7 @@ function renderScanResults() {
             <thead>
                 <tr>
                     <th>상품명</th>
+                    <th>바코드</th>
                     <th>전산</th>
                     <th>실사</th>
                     <th>차이</th>
@@ -187,7 +188,8 @@ function renderScanResults() {
         
         tableHtml += `
             <tr data-barcode="${item.barcode}">
-                <td>${item.products?.product_name || '알 수 없는 상품'}</td>
+                <td style="text-align: center;">${item.products?.product_name || '알 수 없는 상품'}</td>
+                <td style="text-align: center;">${item.barcode}</td>
                 <td style="text-align: center;">${expected}</td>
                 <td style="text-align: center;">${actual}</td>
                 <td style="text-align: center;" class="${diffClass}">${difference}</td>
@@ -226,12 +228,12 @@ async function handleLocationSubmit() {
     if (!locationCode) return;
 
     if (validLocations.has(locationCode)) {
-        setStatusMessage(`${locationCode} 로케이션이 선택되었습니다.`, 'success', false);
+        setStatusMessage(`[${locationCode}] 로케이션이 선택되었습니다.`, 'success', false);
         barcodeInput.disabled = false;
         barcodeInput.focus();
         await loadScanData(locationCode);
     } else {
-        setStatusMessage(`'${locationCode}'는 유효하지 않은 로케이션입니다.`, 'error');
+        setStatusMessage(`[${locationCode}]은 유효하지 않은 로케이션입니다.`, 'error');
         locationInput.select();
     }
 }
@@ -290,7 +292,7 @@ async function handleBarcodeScan() {
             if (insertError) throw insertError;
         }
         
-        setStatusMessage(`${product.product_name} | 수량: ${quantityToAdd} | 스캔 완료`, 'success');
+        setStatusMessage(`[${product.product_name}] | 수량: ${quantityToAdd} | 스캔 완료`, 'success');
         await loadScanData(locationCode);
         await updateProgress();
 
@@ -411,7 +413,7 @@ modalSaveButton.addEventListener('click', async () => {
 
         if (error) throw error;
 
-        setStatusMessage(`${currentProductForModal.products?.product_name}의 수량이 ${newQuantity}(으)로 수정되었습니다.`, 'success');
+        setStatusMessage(`[${currentProductForModal.products?.product_name}]의 수량이 ${newQuantity}으로 수정되었습니다.`, 'success');
         await loadScanData(locationInput.value.trim().toUpperCase());
         await updateProgress();
         editModal.style.display = 'none';
