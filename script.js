@@ -209,11 +209,11 @@ function setStatusMessage(message, type = 'info', playSound = true) {
     switch (type) {
         case 'success':
             p.style.color = 'green';
-            if (playSound) new Audio('success.mp3').play();
+            if (playSound) new Audio('SoundFile.wav').play();
             break;
         case 'error':
             p.style.color = 'red';
-            if (playSound) new Audio('error.mp3').play();
+            if (playSound) new Audio('error.wav').play();
             break;
         case 'info':
         default:
