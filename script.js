@@ -92,7 +92,6 @@ async function loadLocations() {
 // 실사 진행도 요약 정보 업데이트
 async function updateProgress() {
     try {
-        // ✅ [수정] 모든 데이터를 가져오도록 페이지네이션 로직 추가
         let allScans = [];
         let page = 0;
         const pageSize = 1000;
@@ -105,14 +104,13 @@ async function updateProgress() {
                 .range(page * pageSize, (page + 1) * pageSize - 1);
 
             if (pageError) {
-                throw pageError; // 오류 발생 시 반복 중단
+                throw pageError;
             }
 
             if (pageData) {
                 allScans = allScans.concat(pageData);
             }
 
-            // 마지막 페이지에 도달하면 반복 종료
             if (!pageData || pageData.length < pageSize) {
                 break;
             }
@@ -228,7 +226,7 @@ async function handleLocationSubmit() {
     if (!locationCode) return;
 
     if (validLocations.has(locationCode)) {
-        setStatusMessage(`${locationCode} 로케이션이 선택되었습니다.`, 'success');
+        setStatusMessage(`${locationCode} 로케이션이 선택되었습니다.`, 'success', false);
         barcodeInput.disabled = false;
         barcodeInput.focus();
         await loadScanData(locationCode);
@@ -266,14 +264,13 @@ async function handleBarcodeScan() {
             .eq('barcode', product.barcode)
             .single();
 
-        if (scanError && scanError.code !== 'PGRST116') { // PGRST116: 'exact-one-row-not-found' - 정상적인 케이스
+        if (scanError && scanError.code !== 'PGRST116') {
             throw scanError;
         }
 
         const quantityToAdd = multipleQuantityCheckbox.checked ? (parseInt(prompt('수량을 입력하세요:', '1'), 10) || 1) : 1;
 
         if (existingScan) {
-            // 업데이트
             const newQuantity = existingScan.quantity + quantityToAdd;
             const { error: updateError } = await supabaseClient
                 .from('inventory_scans')
@@ -281,7 +278,6 @@ async function handleBarcodeScan() {
                 .eq('id', existingScan.id);
             if (updateError) throw updateError;
         } else {
-            // 삽입
             const { error: insertError } = await supabaseClient
                 .from('inventory_scans')
                 .insert({
@@ -349,7 +345,7 @@ changeChannelButton.addEventListener('click', () => {
 refreshButton.addEventListener('click', async () => {
     setStatusMessage('데이터를 새로고침합니다...', 'info', false);
     const locationCode = locationInput.value.trim().toUpperCase();
-    await loadLocations(); // 로케이션 목록 갱신
+    await loadLocations();
     if (locationCode && validLocations.has(locationCode)) {
         await loadScanData(locationCode);
     }
