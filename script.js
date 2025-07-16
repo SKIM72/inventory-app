@@ -147,6 +147,7 @@ async function loadScanData(locationCode) {
             .select('*, products(*)')
             .eq('channel_id', selectedChannelId)
             .eq('location_code', locationCode)
+            .is('deleted_at', null)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -270,6 +271,7 @@ async function handleBarcodeScan() {
             .eq('channel_id', selectedChannelId)
             .eq('location_code', locationCode)
             .eq('barcode', product.barcode)
+            .is('deleted_at', null)
             .single();
 
         if (scanError && scanError.code !== 'PGRST116') {
