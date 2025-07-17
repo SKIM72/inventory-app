@@ -101,6 +101,7 @@ async function updateProgress() {
                 .from('inventory_scans')
                 .select('expected_quantity, quantity')
                 .eq('channel_id', selectedChannelId)
+                .is('deleted_at', null) // 삭제되지 않은 데이터만 조회
                 .range(page * pageSize, (page + 1) * pageSize - 1);
 
             if (pageError) {
