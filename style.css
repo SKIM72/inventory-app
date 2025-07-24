@@ -186,17 +186,30 @@ input[type="text"]:focus, input[type="number"]:focus {
     font-weight: 500;
     color: white;
     border: none;
-    border-top-right-radius: 8px;
-    border-bottom-right-radius: 8px;
     cursor: pointer;
     transition: background-color 0.2s;
     white-space: nowrap;
 }
+
+.input-with-button button:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
 #location-submit-button { background-color: var(--primary-color); }
 #location-submit-button:hover { background-color: #0059b3; }
 #barcode-submit-button { background-color: var(--success-color); }
 #barcode-submit-button:hover { background-color: #28a445; }
 
+.clear-input-button {
+    background-color: var(--danger-color);
+    color: white;
+    font-weight: 700;
+    padding: 0 1rem;
+}
+.clear-input-button:hover {
+    background-color: #d32f2f;
+}
 
 .option-group {
     display: flex;

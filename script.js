@@ -7,6 +7,8 @@ const locationInput = document.getElementById('location-input');
 const barcodeInput = document.getElementById('barcode-input');
 const locationSubmitButton = document.getElementById('location-submit-button');
 const barcodeSubmitButton = document.getElementById('barcode-submit-button');
+const locationClearButton = document.getElementById('location-clear-button');
+const barcodeClearButton = document.getElementById('barcode-clear-button');
 const multipleQuantityCheckbox = document.getElementById('multiple-quantity-checkbox');
 const statusMessage = document.getElementById('status-message');
 const scanResultsContainer = document.getElementById('scan-results-container');
@@ -257,6 +259,16 @@ locationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.pr
 locationSubmitButton.addEventListener('click', handleLocationSubmit);
 barcodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleBarcodeScan(); } });
 barcodeSubmitButton.addEventListener('click', handleBarcodeScan);
+
+locationClearButton.addEventListener('click', () => {
+    locationInput.value = '';
+    locationInput.focus();
+});
+
+barcodeClearButton.addEventListener('click', () => {
+    barcodeInput.value = '';
+    barcodeInput.focus();
+});
 
 logoutButton.addEventListener('click', async () => {
     if (confirm('로그아웃하시겠습니까?')) {
