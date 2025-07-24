@@ -44,14 +44,12 @@ let productForQuantityModal = null;
 
 // --- 초기화 및 권한 확인 ---
 (async () => {
-    // 채널 선택 확인
     if (!selectedChannelId) {
         alert('채널이 선택되지 않았습니다. 채널 선택 페이지로 이동합니다.');
         window.location.href = 'index.html';
         return;
     }
 
-    // 로그인 및 승인 상태 확인
     const { data: { session }, error } = await supabaseClient.auth.getSession();
     if (error || !session || !session.user) {
         alert('로그인이 필요합니다.');
@@ -59,7 +57,6 @@ let productForQuantityModal = null;
         return;
     }
     
-    // 메타데이터 승인 확인
     if (session.user.user_metadata.is_approved !== true) {
         alert('승인되지 않은 계정입니다. 관리자에게 문의하세요.');
         await supabaseClient.auth.signOut();
@@ -67,7 +64,6 @@ let productForQuantityModal = null;
         return;
     }
 
-    // 초기 데이터 로드
     document.querySelector('header h1').textContent = `${selectedChannelName} 재고 실사`;
     await loadLocations();
     await updateProgress();
@@ -76,7 +72,6 @@ let productForQuantityModal = null;
 // --- 함수 ---
 
 async function loadLocations() {
-    console.log(`채널 ID [${selectedChannelId}]의 로케이션 정보를 불러옵니다...`);
     let allLocations = [];
     let page = 0;
     const pageSize = 1000;
@@ -89,7 +84,6 @@ async function loadLocations() {
             page++;
         }
         validLocations = new Set(allLocations.map(location => location.location_code));
-        console.log(`${validLocations.size}개의 로케이션 정보를 성공적으로 불러왔습니다.`);
     } catch (error) {
         console.error('로케이션 정보 로딩 실패:', error);
         setStatusMessage('로케이션 정보를 불러오는 데 실패했습니다.', 'error');
@@ -127,7 +121,11 @@ async function updateProgress() {
 
 async function loadScanData(locationCode) {
     try {
-        const { data, error } = await supabaseClient.from('inventory_scans').select('*, products(*)').eq('channel_id', selectedChannelId).eq('location_code', locationCode).is('deleted_at', null).order('created_at', { ascending: false });
+        const { data, error } = await supabaseClient.rpc('get_scan_data_for_location', {
+            channel_id_param: selectedChannelId,
+            location_code_param: locationCode
+        });
+
         if (error) throw error;
         currentScanData = data;
         renderScanResults();
@@ -142,13 +140,13 @@ function renderScanResults() {
         scanResultsContainer.innerHTML = '<div class="card" style="padding: 1rem; text-align: center; color: var(--text-secondary-color);">해당 로케이션에 스캔된 상품이 없습니다.</div>';
         return;
     }
-    let tableHtml = `<table class="results-table"><thead><tr><th>상품명</th><th>바코드</th><th>전산</th><th>실사</th><th>차이</th></tr></thead><tbody>`;
+    let tableHtml = `<table class="results-table"><thead><tr><th>상품명</th><th>상품코드</th><th>바코드</th><th>전산</th><th>실사</th><th>차이</th></tr></thead><tbody>`;
     currentScanData.forEach(item => {
         const expected = item.expected_quantity || 0;
         const actual = item.quantity || 0;
         const difference = actual - expected;
         const diffClass = difference > 0 ? 'diff-plus' : (difference < 0 ? 'diff-minus' : '');
-        tableHtml += `<tr data-barcode="${item.barcode}"><td style="text-align: center;">${item.products?.product_name || '알 수 없는 상품'}</td><td style="text-align: center;">${item.barcode}</td><td style="text-align: center;">${expected}</td><td style="text-align: center;">${actual}</td><td style="text-align: center;" class="${diffClass}">${difference}</td></tr>`;
+        tableHtml += `<tr data-product-code="${item.product_code}"><td style="text-align: center;">${item.product_name || '알 수 없는 상품'}</td><td style="text-align: center;">${item.product_code || 'N/A'}</td><td style="text-align: center;">${item.barcode}</td><td style="text-align: center;">${expected}</td><td style="text-align: center;">${actual}</td><td style="text-align: center;" class="${diffClass}">${difference}</td></tr>`;
     });
     tableHtml += `</tbody></table>`;
     scanResultsContainer.innerHTML = tableHtml;
@@ -163,14 +161,12 @@ function setStatusMessage(message, type = 'info', playSound = true) {
             case 'success':
                 p.parentElement.style.backgroundColor = '#e8f5e9';
                 p.parentElement.style.color = 'var(--success-color)';
-                // ▼▼▼ [수정] 효과음 재생 활성화 ▼▼▼
                 if (playSound) new Audio('SoundFile.wav').play();
-                // ▲▲▲ [수정] 효과음 재생 활성화 ▲▲▲
                 break;
             case 'error':
                 p.parentElement.style.backgroundColor = '#ffebee';
                 p.parentElement.style.color = 'var(--danger-color)';
-                if (playSound) new Audio('error.wav').play(); // 에러 효과음은 이미 활성화되어 있었습니다.
+                if (playSound) new Audio('error.wav').play();
                 break;
             case 'info':
             default:
@@ -185,9 +181,17 @@ function setStatusMessage(message, type = 'info', playSound = true) {
 
 async function handleLocationSubmit() {
     const locationCode = locationInput.value.trim().toUpperCase();
-    if (!locationCode) { setStatusMessage('로케이션을 입력하세요.', 'error'); return; }
+    if (!locationCode) { 
+        setStatusMessage('로케이션을 입력하세요.', 'error'); 
+        return;
+    }
     if (validLocations.has(locationCode)) {
         setStatusMessage(`[${locationCode}] 로케이션이 선택되었습니다.`, 'success', false);
+        try {
+            new Audio('locationscan.wav').play();
+        } catch (e) {
+            console.error("오디오 재생 오류:", e);
+        }
         barcodeInput.disabled = false;
         barcodeInput.focus();
         await loadScanData(locationCode);
@@ -199,23 +203,49 @@ async function handleLocationSubmit() {
 
 async function processAndRecordScan(product, quantityToAdd) {
     const locationCode = locationInput.value.trim().toUpperCase();
+    const productCode = product.product_code;
+
     try {
-        const { data: existingScan, error: scanError } = await supabaseClient.from('inventory_scans').select('*').eq('channel_id', selectedChannelId).eq('location_code', locationCode).eq('barcode', product.barcode).is('deleted_at', null).single();
-        if (scanError && scanError.code !== 'PGRST116') throw scanError;
+        const { data: existingScan, error: scanError } = await supabaseClient
+            .from('inventory_scans')
+            .select('id, quantity')
+            .eq('channel_id', selectedChannelId)
+            .eq('location_code', locationCode)
+            .eq('product_code', productCode)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (scanError) throw scanError;
 
         if (existingScan) {
             const newQuantity = existingScan.quantity + quantityToAdd;
-            const { error: updateError } = await supabaseClient.from('inventory_scans').update({ quantity: newQuantity, created_at: new Date().toISOString() }).eq('id', existingScan.id);
+            const { error: updateError } = await supabaseClient
+                .from('inventory_scans')
+                .update({ quantity: newQuantity, created_at: new Date().toISOString() })
+                .eq('id', existingScan.id);
+            
             if (updateError) throw updateError;
+
         } else {
-            const { error: insertError } = await supabaseClient.from('inventory_scans').insert({ channel_id: selectedChannelId, location_code: locationCode, barcode: product.barcode, quantity: quantityToAdd, expected_quantity: 0 });
+            const { error: insertError } = await supabaseClient
+                .from('inventory_scans')
+                .insert({
+                    channel_id: selectedChannelId,
+                    location_code: locationCode,
+                    product_code: productCode,
+                    quantity: quantityToAdd,
+                    expected_quantity: 0 
+                });
             if (insertError) throw insertError;
         }
+        
         setStatusMessage(`[${product.product_name}] | 수량: ${quantityToAdd} | 스캔 완료`, 'success');
+        
         await loadScanData(locationCode);
         await updateProgress();
+
     } catch (error) {
-        console.error('바코드 스캔 처리 중 오류:', error);
+        console.error('스캔 처리 중 오류:', error);
         setStatusMessage(`오류 발생: ${error.message}`, 'error');
     }
 }
@@ -225,13 +255,21 @@ async function handleBarcodeScan() {
     if (!scannedCode) { setStatusMessage('바코드를 입력하세요.', 'error'); return; }
 
     try {
-        const { data: product, error: productError } = await supabaseClient.from('products').select('*').eq('channel_id', selectedChannelId).or(`barcode.eq.${scannedCode},product_code.eq.${scannedCode}`).single();
-        if (productError || !product) {
+        const { data: products, error: productError } = await supabaseClient
+            .from('products')
+            .select('*')
+            .eq('channel_id', selectedChannelId)
+            .or(`barcode.eq.${scannedCode},product_code.eq.${scannedCode}`)
+            .limit(1);
+
+        if (productError || !products || products.length === 0) {
             setStatusMessage(`[${scannedCode}] 상품을 찾을 수 없습니다.`, 'error');
             barcodeInput.value = '';
             barcodeInput.focus();
             return;
         }
+        
+        const product = products[0];
 
         if (multipleQuantityCheckbox.checked) {
             productForQuantityModal = product;
@@ -305,21 +343,45 @@ resetQuantityButton.addEventListener('click', async () => {
     }
 });
 
-// --- 모달 로직 ---
-scanResultsContainer.addEventListener('click', (e) => {
+// --- 모달 로직 (개선됨) ---
+scanResultsContainer.addEventListener('click', async (e) => {
     const row = e.target.closest('tr');
     if (!row) return;
-    const barcode = row.dataset.barcode;
-    currentProductForModal = currentScanData.find(item => item.barcode === barcode);
+    const productCode = row.dataset.productCode;
+    currentProductForModal = currentScanData.find(item => item.product_code === productCode);
+    
     if (currentProductForModal) {
-        modalProductName.textContent = currentProductForModal.products?.product_name || '알 수 없는 상품';
-        modalBarcode.textContent = `바코드: ${barcode}`;
+        // 모달의 기본 정보를 먼저 표시합니다.
+        modalProductName.textContent = currentProductForModal.product_name || '알 수 없는 상품';
         modalQuantityInput.value = currentProductForModal.quantity;
+        modalBarcode.textContent = `상품코드: ${productCode} | 전체 바코드 조회 중...`;
         editModal.style.display = 'flex';
         modalQuantityInput.focus();
         modalQuantityInput.select();
+
+        try {
+            // DB에서 해당 상품코드의 모든 바코드를 조회합니다.
+            const { data: allProducts, error } = await supabaseClient
+                .from('products')
+                .select('barcode')
+                .eq('channel_id', selectedChannelId)
+                .eq('product_code', productCode);
+
+            if (error) throw error;
+
+            if (allProducts && allProducts.length > 0) {
+                const barcodeList = allProducts.map(p => p.barcode).join(', ');
+                modalBarcode.textContent = `상품코드: ${productCode} | 전체 바코드: ${barcodeList}`;
+            } else {
+                modalBarcode.textContent = `상품코드: ${productCode} | 바코드: ${currentProductForModal.barcode || 'N/A'}`;
+            }
+        } catch (dbError) {
+            console.error("전체 바코드 조회 실패:", dbError);
+            modalBarcode.textContent = `상품코드: ${productCode} | 바코드: ${currentProductForModal.barcode || 'N/A'} (목록 조회 실패)`;
+        }
     }
 });
+
 
 modalSaveButton.addEventListener('click', async () => {
     const newQuantity = parseInt(modalQuantityInput.value, 10);
@@ -327,7 +389,7 @@ modalSaveButton.addEventListener('click', async () => {
     try {
         const { error } = await supabaseClient.from('inventory_scans').update({ quantity: newQuantity, created_at: new Date().toISOString() }).eq('id', currentProductForModal.id);
         if (error) throw error;
-        setStatusMessage(`[${currentProductForModal.products?.product_name}]의 수량이 ${newQuantity}으로 수정되었습니다.`, 'success');
+        setStatusMessage(`[${currentProductForModal.product_name}]의 수량이 ${newQuantity}으로 수정되었습니다.`, 'success');
         await loadScanData(locationInput.value.trim().toUpperCase());
         await updateProgress();
         editModal.style.display = 'none';
