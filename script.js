@@ -121,6 +121,7 @@ async function updateProgress() {
 
 async function loadScanData(locationCode) {
     try {
+        // 새로 만든 RPC 함수를 호출하여 데이터를 조회합니다.
         const { data, error } = await supabaseClient.rpc('get_scan_data_for_location', {
             channel_id_param: selectedChannelId,
             location_code_param: locationCode
@@ -146,7 +147,8 @@ function renderScanResults() {
         const actual = item.quantity || 0;
         const difference = actual - expected;
         const diffClass = difference > 0 ? 'diff-plus' : (difference < 0 ? 'diff-minus' : '');
-        tableHtml += `<tr data-product-code="${item.product_code}"><td style="text-align: center;">${item.product_name || '알 수 없는 상품'}</td><td style="text-align: center;">${item.product_code || 'N/A'}</td><td style="text-align: center;">${item.barcode}</td><td style="text-align: center;">${expected}</td><td style="text-align: center;">${actual}</td><td style="text-align: center;" class="${diffClass}">${difference}</td></tr>`;
+        // 상품명 td의 불필요한 인라인 스타일을 제거했습니다.
+        tableHtml += `<tr data-product-code="${item.product_code}"><td>${item.product_name || '알 수 없는 상품'}</td><td style="text-align: center;">${item.product_code || 'N/A'}</td><td style="text-align: center;">${item.barcode}</td><td style="text-align: center;">${expected}</td><td style="text-align: center;">${actual}</td><td style="text-align: center;" class="${diffClass}">${difference}</td></tr>`;
     });
     tableHtml += `</tbody></table>`;
     scanResultsContainer.innerHTML = tableHtml;
@@ -188,7 +190,7 @@ async function handleLocationSubmit() {
     if (validLocations.has(locationCode)) {
         setStatusMessage(`[${locationCode}] 로케이션이 선택되었습니다.`, 'success', false);
         try {
-            new Audio('locationscan.wav').play();
+            new Audio('locationscan.wav').play(); // 로케이션 스캔 성공 효과음 재생
         } catch (e) {
             console.error("오디오 재생 오류:", e);
         }
@@ -343,7 +345,7 @@ resetQuantityButton.addEventListener('click', async () => {
     }
 });
 
-// --- 모달 로직 (개선됨) ---
+// --- 모달 로직 ---
 scanResultsContainer.addEventListener('click', async (e) => {
     const row = e.target.closest('tr');
     if (!row) return;

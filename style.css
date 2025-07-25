@@ -311,20 +311,20 @@ input[type="text"]:focus, input[type="number"]:focus {
 .results-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed; /* --- 개선된 부분 --- */
+    table-layout: fixed;
 }
 
 .results-table th, .results-table td {
-    padding: 0.8rem 1rem;
+    padding: 0.8rem 0.5rem;
     text-align: center;
     border-bottom: 1px solid var(--border-color);
-    font-size: clamp(0.7rem, 3.5vw, 0.9rem);
+    font-size: clamp(0.65rem, 3vw, 0.9rem);
     word-break: break-word;
 }
 
 .results-table td:first-child {
     text-align: left;
-    word-break: break-all; /* 상품명은 강제 줄바꿈 허용 */
+    word-break: break-all;
 }
 
 .results-table th {
@@ -333,7 +333,6 @@ input[type="text"]:focus, input[type="number"]:focus {
     color: var(--text-secondary-color);
 }
 
-/* --- 개선된 부분: 각 컬럼의 너비 비율 지정 --- */
 .results-table th:nth-child(1) { width: 34%; } /* 상품명 */
 .results-table th:nth-child(2) { width: 20%; } /* 상품코드 */
 .results-table th:nth-child(3) { width: 20%; } /* 바코드 */
@@ -452,4 +451,12 @@ input[type="text"]:focus, input[type="number"]:focus {
 
 .channel-button:active {
     transform: scale(0.98);
+}
+
+/* --- 추가된 부분 --- */
+/* 전산, 실사, 차이 컬럼은 줄바꿈되지 않도록 설정 */
+.results-table td:nth-child(4),
+.results-table td:nth-child(5),
+.results-table td:nth-child(6) {
+    white-space: nowrap;
 }
