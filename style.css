@@ -311,20 +311,37 @@ input[type="text"]:focus, input[type="number"]:focus {
 .results-table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed; /* --- 개선된 부분 --- */
 }
+
 .results-table th, .results-table td {
     padding: 0.8rem 1rem;
-    text-align: left;
+    text-align: center;
     border-bottom: 1px solid var(--border-color);
-    font-size: 0.9rem;
+    font-size: clamp(0.7rem, 3.5vw, 0.9rem);
+    word-break: break-word;
 }
+
+.results-table td:first-child {
+    text-align: left;
+    word-break: break-all; /* 상품명은 강제 줄바꿈 허용 */
+}
+
 .results-table th {
     background-color: #f9f9fb;
     font-weight: 500;
     color: var(--text-secondary-color);
-    font-size: 0.8rem;
-    text-align: center;
 }
+
+/* --- 개선된 부분: 각 컬럼의 너비 비율 지정 --- */
+.results-table th:nth-child(1) { width: 34%; } /* 상품명 */
+.results-table th:nth-child(2) { width: 20%; } /* 상품코드 */
+.results-table th:nth-child(3) { width: 20%; } /* 바코드 */
+.results-table th:nth-child(4) { width: 8%; }  /* 전산 */
+.results-table th:nth-child(5) { width: 8%; }  /* 실사 */
+.results-table th:nth-child(6) { width: 10%; } /* 차이 */
+
+
 .results-table tr:last-child td {
     border-bottom: none;
 }
