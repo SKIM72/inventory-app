@@ -1,457 +1,442 @@
 // Supabase 클라이언트 설정
-const SUPABASE_URL = 'https://lmlpbjosdygnpqcnrwuj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxtbHBiam9zZHlnbnBxY25yd3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5MDA2NjgsImV4cCI6MjA2ODQ3NjY2OH0.Jt1Al2Sl44fSlRMAsvRw5cBuKfXcMzeYyzE774stBuQ';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const { createClient } = supabase;
+const supabaseClient = createClient('https://qjftovamkqhxaenueood.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqZnRvdmFta3FoeGFlbnVlb29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwMzQxMTgsImV4cCI6MjA2NzYxMDExOH0.qpMLaPEkMEmXeRg7193JqjFyUdntIxq3Q3kARUqGS18');
+
+// --- DOM 요소 ---
+const locationInput = document.getElementById('location-input');
+const barcodeInput = document.getElementById('barcode-input');
+const locationSubmitButton = document.getElementById('location-submit-button');
+const barcodeSubmitButton = document.getElementById('barcode-submit-button');
+const locationClearButton = document.getElementById('location-clear-button');
+const barcodeClearButton = document.getElementById('barcode-clear-button');
+const multipleQuantityCheckbox = document.getElementById('multiple-quantity-checkbox');
+const statusMessage = document.getElementById('status-message');
+const scanResultsContainer = document.getElementById('scan-results-container');
+const totalExpectedEl = document.getElementById('total-expected');
+const totalActualEl = document.getElementById('total-actual');
+const progressPercentEl = document.getElementById('progress-percent');
+const refreshButton = document.getElementById('refresh-button');
+const resetQuantityButton = document.getElementById('reset-quantity-button');
+const logoutButton = document.getElementById('logout-button');
+const changeChannelButton = document.getElementById('change-channel-button');
+
+// --- 수정 모달 ---
+const editModal = document.getElementById('edit-modal');
+const modalProductName = document.getElementById('modal-product-name');
+const modalBarcode = document.getElementById('modal-barcode');
+const modalQuantityInput = document.getElementById('modal-quantity-input');
+const modalSaveButton = document.getElementById('modal-save-button');
+const modalCancelButton = document.getElementById('modal-cancel-button');
+
+// 복수 수량 입력 모달 요소
+const quantityModal = document.getElementById('quantity-modal');
+const quantityModalInput = document.getElementById('quantity-input');
+const quantityConfirmButton = document.getElementById('quantity-confirm-button');
+const quantityCancelButton = document.getElementById('quantity-cancel-button');
 
 // --- 상태 변수 ---
-let currentOrder = null;
-let pickingItems = [];
-let itemForModal = null;
-let itemToEdit = null; // 수량 수정 모달용 아이템
+let selectedChannelId = localStorage.getItem('selectedChannelId');
+let selectedChannelName = localStorage.getItem('selectedChannelName');
+let validLocations = [];
+let currentScanData = [];
+let currentProductForModal = null;
+let productForQuantityModal = null;
 
-// --- 유틸리티 함수 ---
-function playSound(soundId) {
-    const sound = document.getElementById(soundId);
-    if (sound) {
-        sound.currentTime = 0;
-        sound.play().catch(e => console.error(`오디오 재생 오류 (${soundId}): ${e.message}`));
-    }
-}
-
-// --- 핵심 로직 함수 ---
-
-async function handleOrderSubmit() {
-    const orderInput = document.getElementById('order-input');
-    const barcodeInput = document.getElementById('barcode-input');
-    const recipientInfoEl = document.getElementById('recipient-info');
-    const addressInfoEl = document.getElementById('address-info');
-    const pickingItemsContainer = document.getElementById('picking-items-container');
-    const resetOrderButton = document.getElementById('reset-order-button');
-    const refreshButton = document.getElementById('refresh-button');
-    const selectedChannelId = localStorage.getItem('selectedChannelId');
-    const orderNo = orderInput.value.trim();
-
-    if (!orderNo) {
-        setStatusMessage('출고지시번호를 입력하세요.', 'error');
-        playSound('error-sound');
+// --- 초기화 및 권한 확인 ---
+(async () => {
+    if (!selectedChannelId) {
+        alert('채널이 선택되지 않았습니다. 채널 선택 페이지로 이동합니다.');
+        window.location.href = 'index.html';
         return;
     }
 
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if (error || !session || !session.user) {
+        alert('로그인이 필요합니다.');
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    if (session.user.user_metadata.is_approved !== true) {
+        alert('승인되지 않은 계정입니다. 관리자에게 문의하세요.');
+        await supabaseClient.auth.signOut();
+        window.location.href = 'login.html';
+        return;
+    }
+
+    document.querySelector('header h1').textContent = `${selectedChannelName} 재고 실사`;
+    await loadLocations();
+    await updateProgress();
+})();
+
+// --- 함수 ---
+
+async function loadLocations() {
+    let allLocations = [];
+    let page = 0;
+    const pageSize = 1000;
     try {
-        const { data: orderDataArray, error: orderError } = await supabaseClient.rpc('get_order_by_number_in_channel', {
-            p_order_number: orderNo,
-            p_channel_id: selectedChannelId
+        while (true) {
+            const { data, error } = await supabaseClient.from('locations').select('location_code').eq('channel_id', selectedChannelId).range(page * pageSize, (page + 1) * pageSize - 1);
+            if (error) throw error;
+            if (data.length > 0) allLocations = allLocations.concat(data);
+            if (data.length < pageSize) break;
+            page++;
+        }
+        validLocations = new Set(allLocations.map(location => location.location_code));
+    } catch (error) {
+        console.error('로케이션 정보 로딩 실패:', error);
+        setStatusMessage('로케이션 정보를 불러오는 데 실패했습니다.', 'error');
+    }
+}
+
+async function updateProgress() {
+    try {
+        let allScans = [];
+        let page = 0;
+        const pageSize = 1000;
+        while (true) {
+            const { data: pageData, error: pageError } = await supabaseClient.from('inventory_scans').select('expected_quantity, quantity').eq('channel_id', selectedChannelId).is('deleted_at', null).range(page * pageSize, (page + 1) * pageSize - 1);
+            if (pageError) throw pageError;
+            if (pageData) allScans = allScans.concat(pageData);
+            if (!pageData || pageData.length < pageSize) break;
+            page++;
+        }
+        const totals = allScans.reduce((acc, item) => {
+            acc.expected += item.expected_quantity || 0;
+            acc.actual += item.quantity || 0;
+            return acc;
+        }, { expected: 0, actual: 0 });
+        totalExpectedEl.textContent = totals.expected.toLocaleString();
+        totalActualEl.textContent = totals.actual.toLocaleString();
+        const progress = totals.expected > 0 ? (totals.actual / totals.expected * 100) : 0;
+        progressPercentEl.textContent = `${progress.toFixed(2)}%`;
+    } catch (error) {
+        console.error('진행도 업데이트 실패:', error);
+        totalExpectedEl.textContent = '오류';
+        totalActualEl.textContent = '오류';
+        progressPercentEl.textContent = '오류';
+    }
+}
+
+async function loadScanData(locationCode) {
+    try {
+        // 새로 만든 RPC 함수를 호출하여 데이터를 조회합니다.
+        const { data, error } = await supabaseClient.rpc('get_scan_data_for_location', {
+            channel_id_param: selectedChannelId,
+            location_code_param: locationCode
         });
 
-        if (orderError) throw orderError;
-        
-        if (!orderDataArray || orderDataArray.length === 0) {
-            throw new Error('해당 채널에 존재하지 않는 출고지시번호입니다.');
-        }
-        
-        currentOrder = orderDataArray[0];
-        playSound('orderscan-sound');
-        
-        recipientInfoEl.textContent = currentOrder.recipient || '수취인 정보 없음';
-        addressInfoEl.textContent = currentOrder.destination_address || '';
-        document.querySelector('header h1').textContent = `${localStorage.getItem('selectedChannelName')} / ${currentOrder.batch_date} / ${currentOrder.batch_number}차 검수`;
-        resetOrderButton.style.display = 'inline-flex';
-        refreshButton.style.display = 'inline-flex';
-
-        await loadPickingItems();
-        updateProgress();
-
-        if (currentOrder.status === '완료') {
-            setStatusMessage(`[${orderNo}] 검수가 완료된 주문입니다.`, 'success');
-            barcodeInput.disabled = true;
-        } else {
-            setStatusMessage(`[${orderNo}] 검수를 시작합니다. 상품 바코드를 스캔하세요.`, 'info');
-            barcodeInput.disabled = false;
-            barcodeInput.focus();
-        }
-
-    } catch (error) {
-        playSound('error-sound');
-        setStatusMessage(error.message, 'error');
-        currentOrder = null;
-        pickingItems = [];
-        if(pickingItemsContainer) pickingItemsContainer.innerHTML = '';
-        if(recipientInfoEl) recipientInfoEl.textContent = '출고지시번호를 먼저 선택하세요.';
-        if(addressInfoEl) addressInfoEl.textContent = '';
-        document.querySelector('header h1').textContent = `${localStorage.getItem('selectedChannelName')} 출고 검수`;
-        if(resetOrderButton) resetOrderButton.style.display = 'none';
-        if(refreshButton) refreshButton.style.display = 'none';
-        updateProgress();
-    }
-}
-
-async function handleResetOrder() {
-    if (!currentOrder) return;
-    if (confirm('이 출고건의 모든 검수 내역을 초기화하시겠습니까?')) {
-        try {
-            await supabaseClient.from('picking_items').update({ picked_quantity: 0 }).eq('order_id', currentOrder.id);
-            await supabaseClient.from('picking_orders').update({ total_picked_quantity: 0, status: '미검수' }).eq('id', currentOrder.id);
-            setStatusMessage('검수 내역이 초기화되었습니다. 다시 조회합니다.', 'success');
-            await handleOrderSubmit();
-        } catch (error) {
-            setStatusMessage(`초기화 실패: ${error.message}`, 'error');
-            playSound('error-sound');
-        }
-    }
-}
-
-async function loadPickingItems() {
-    if (!currentOrder) return;
-    try {
-        const { data, error } = await supabaseClient
-            .from('picking_items')
-            .select('*')
-            .eq('order_id', currentOrder.id)
-            .order('product_name');
-
         if (error) throw error;
-        pickingItems = data;
-        renderPickingItems();
+        currentScanData = data;
+        renderScanResults();
     } catch (error) {
-        setStatusMessage('상품 목록을 불러오는 데 실패했습니다.', 'error');
+        console.error(`${locationCode} 스캔 데이터 로딩 실패:`, error);
+        setStatusMessage(`${locationCode}의 스캔 데이터를 불러오는 데 실패했습니다.`, 'error');
     }
 }
 
-function renderPickingItems() {
-    const pickingItemsContainer = document.getElementById('picking-items-container');
-    if (!pickingItemsContainer) return;
-    if (pickingItems.length === 0) {
-        pickingItemsContainer.innerHTML = '<div class="card" style="padding: 1rem; text-align: center;">검수할 상품이 없습니다.</div>';
+function renderScanResults() {
+    if (currentScanData.length === 0) {
+        scanResultsContainer.innerHTML = '<div class="card" style="padding: 1rem; text-align: center; color: var(--text-secondary-color);">해당 로케이션에 스캔된 상품이 없습니다.</div>';
         return;
     }
-
-    let tableHtml = `
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th>상품명</th><th>바코드</th><th>지시수량</th><th>검수수량</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    pickingItems.forEach(item => {
-        const isCompleted = (item.picked_quantity || 0) >= item.expected_quantity;
-        tableHtml += `
-            <tr class="${isCompleted ? 'completed' : ''}" data-barcode="${item.barcode}">
-                <td>${item.product_name || '이름 없음'}</td>
-                <td style="text-align: center;">${item.barcode}</td>
-                <td style="text-align: center;">${item.expected_quantity}</td>
-                <td style="text-align: center;" class="item-progress">${item.picked_quantity || 0}</td>
-            </tr>
-        `;
+    let tableHtml = `<table class="results-table"><thead><tr><th>상품명</th><th>상품코드</th><th>바코드</th><th>전산</th><th>실사</th><th>차이</th></tr></thead><tbody>`;
+    currentScanData.forEach(item => {
+        const expected = item.expected_quantity || 0;
+        const actual = item.quantity || 0;
+        const difference = actual - expected;
+        const diffClass = difference > 0 ? 'diff-plus' : (difference < 0 ? 'diff-minus' : '');
+        // 상품명 td의 불필요한 인라인 스타일을 제거했습니다.
+        tableHtml += `<tr data-product-code="${item.product_code}"><td>${item.product_name || '알 수 없는 상품'}</td><td style="text-align: center;">${item.product_code || 'N/A'}</td><td style="text-align: center;">${item.barcode}</td><td style="text-align: center;">${expected}</td><td style="text-align: center;">${actual}</td><td style="text-align: center;" class="${diffClass}">${difference}</td></tr>`;
     });
     tableHtml += `</tbody></table>`;
-    pickingItemsContainer.innerHTML = tableHtml;
+    scanResultsContainer.innerHTML = tableHtml;
 }
 
-async function processQuantityUpdate(item, qtyToAdd) {
-    const currentPicked = item.picked_quantity || 0;
-    const expected = item.expected_quantity;
+function setStatusMessage(message, type = 'info', playSound = true) {
+    const p = statusMessage.querySelector('p');
+    p.textContent = message;
+    
+    try {
+        switch (type) {
+            case 'success':
+                p.parentElement.style.backgroundColor = '#e8f5e9';
+                p.parentElement.style.color = 'var(--success-color)';
+                if (playSound) new Audio('SoundFile.wav').play();
+                break;
+            case 'error':
+                p.parentElement.style.backgroundColor = '#ffebee';
+                p.parentElement.style.color = 'var(--danger-color)';
+                if (playSound) new Audio('error.wav').play();
+                break;
+            case 'info':
+            default:
+                p.parentElement.style.backgroundColor = '#e3f2fd';
+                p.parentElement.style.color = 'var(--primary-color)';
+                break;
+        }
+    } catch (e) {
+        console.error("오디오 재생 오류:", e);
+    }
+}
 
-    if (currentPicked + qtyToAdd > expected) {
-        alert('지시수량보다 많습니다.');
-        playSound('error-sound');
+async function handleLocationSubmit() {
+    const locationCode = locationInput.value.trim().toUpperCase();
+    if (!locationCode) { 
+        setStatusMessage('로케이션을 입력하세요.', 'error'); 
         return;
     }
-    try {
-        const newPickedQty = currentPicked + qtyToAdd;
-        await supabaseClient.from('picking_items').update({ picked_quantity: newPickedQty }).eq('id', item.id);
-        const newTotalPicked = (currentOrder.total_picked_quantity || 0) + qtyToAdd;
-        const newStatus = newTotalPicked >= currentOrder.total_expected_quantity ? '완료' : '검수중';
-        const { data: updatedOrder } = await supabaseClient.from('picking_orders').update({ total_picked_quantity: newTotalPicked, status: newStatus }).eq('id', currentOrder.id).select().single();
-        
-        item.picked_quantity = newPickedQty;
-        currentOrder.total_picked_quantity = updatedOrder.total_picked_quantity;
-        currentOrder.status = updatedOrder.status;
+    if (validLocations.has(locationCode)) {
+        setStatusMessage(`[${locationCode}] 로케이션이 선택되었습니다.`, 'success', false);
+        try {
+            new Audio('locationscan.wav').play(); // 로케이션 스캔 성공 효과음 재생
+        } catch (e) {
+            console.error("오디오 재생 오류:", e);
+        }
+        barcodeInput.disabled = false;
+        barcodeInput.focus();
+        await loadScanData(locationCode);
+    } else {
+        setStatusMessage(`[${locationCode}]은 유효하지 않은 로케이션입니다.`, 'error');
+        locationInput.select();
+    }
+}
 
-        playSound('productscan-sound');
-        setStatusMessage(`[${item.product_name}] ${qtyToAdd}개 검수 완료.`, 'success');
-        updateProgress();
-        renderPickingItems();
+async function processAndRecordScan(product, quantityToAdd) {
+    const locationCode = locationInput.value.trim().toUpperCase();
+    const productCode = product.product_code;
+
+    try {
+        const { data: existingScan, error: scanError } = await supabaseClient
+            .from('inventory_scans')
+            .select('id, quantity')
+            .eq('channel_id', selectedChannelId)
+            .eq('location_code', locationCode)
+            .eq('product_code', productCode)
+            .is('deleted_at', null)
+            .maybeSingle();
+
+        if (scanError) throw scanError;
+
+        if (existingScan) {
+            const newQuantity = existingScan.quantity + quantityToAdd;
+            const { error: updateError } = await supabaseClient
+                .from('inventory_scans')
+                .update({ quantity: newQuantity, created_at: new Date().toISOString() })
+                .eq('id', existingScan.id);
+            
+            if (updateError) throw updateError;
+
+        } else {
+            const { error: insertError } = await supabaseClient
+                .from('inventory_scans')
+                .insert({
+                    channel_id: selectedChannelId,
+                    location_code: locationCode,
+                    product_code: productCode,
+                    quantity: quantityToAdd,
+                    expected_quantity: 0 
+                });
+            if (insertError) throw insertError;
+        }
         
-        if (currentOrder.status === '완료') handleOrderCompletion();
+        setStatusMessage(`[${product.product_name}] | 수량: ${quantityToAdd} | 스캔 완료`, 'success');
+        
+        await loadScanData(locationCode);
+        await updateProgress();
+
     } catch (error) {
-        playSound('error-sound');
+        console.error('스캔 처리 중 오류:', error);
         setStatusMessage(`오류 발생: ${error.message}`, 'error');
     }
 }
 
 async function handleBarcodeScan() {
-    const barcodeInput = document.getElementById('barcode-input');
-    const multiQtyCheckbox = document.getElementById('multi-qty-checkbox');
     const scannedCode = barcodeInput.value.trim();
-
-    if (!scannedCode || !currentOrder || currentOrder.status === '완료') {
-        if (barcodeInput) barcodeInput.value = '';
-        return;
-    }
-
-    const targetItem = pickingItems.find(item => item.barcode === scannedCode);
-
-    if (!targetItem) {
-        setStatusMessage(`[${scannedCode}] 이 주문에 없는 상품입니다.`, 'error');
-        playSound('error-sound');
-        if (barcodeInput) barcodeInput.select();
-        return;
-    }
-
-    if ((targetItem.picked_quantity || 0) >= targetItem.expected_quantity) {
-        setStatusMessage(`[${targetItem.product_name}] 이미 지시수량만큼 검수했습니다.`, 'error');
-        playSound('error-sound');
-        if (barcodeInput) barcodeInput.value = '';
-        return;
-    }
-
-    if (multiQtyCheckbox.checked) {
-        itemForModal = targetItem;
-        document.getElementById('quantity-modal').style.display = 'flex';
-        const quantityInput = document.getElementById('quantity-input');
-        
-        quantityInput.value = '';
-        
-        // ▼▼▼ [수정] PC 포커스 문제 해결 ▼▼▼
-        setTimeout(() => {
-            quantityInput.focus();
-        }, 100); // 0.1초 후 포커스를 실행하여 렌더링 시간 확보
-        // ▲▲▲ [수정] PC 포커스 문제 해결 ▲▲▲
-
-    } else {
-        await processQuantityUpdate(targetItem, 1);
-    }
-    
-    if(barcodeInput) {
-        barcodeInput.value = '';
-        barcodeInput.focus();
-    }
-}
-
-function handleOrderCompletion() {
-    playSound('success-sound');
-    document.getElementById('barcode-input').disabled = true;
-    setStatusMessage(`[${currentOrder.order_number}] 모든 상품의 검수가 완료되었습니다!`, 'success');
-
-    const orderInput = document.getElementById('order-input');
-    orderInput.focus();
-    orderInput.select();
-}
-
-function updateProgress() {
-    const totalExpectedEl = document.getElementById('total-expected');
-    const totalPickedEl = document.getElementById('total-picked');
-    const progressPercentEl = document.getElementById('progress-percent');
-
-    const expected = currentOrder ? currentOrder.total_expected_quantity : 0;
-    const picked = currentOrder ? currentOrder.total_picked_quantity : 0;
-    const progress = expected > 0 ? (picked / expected * 100) : 0;
-
-    if(totalExpectedEl) totalExpectedEl.textContent = expected.toLocaleString();
-    if(totalPickedEl) totalPickedEl.textContent = picked.toLocaleString();
-    if(progressPercentEl) progressPercentEl.textContent = `${progress.toFixed(2)}%`;
-}
-
-function setStatusMessage(message, type = 'info') {
-    const statusMessageEl = document.getElementById('status-message');
-    if(statusMessageEl) {
-        statusMessageEl.className = type;
-        statusMessageEl.querySelector('p').textContent = message;
-    }
-}
-
-async function handleItemRowClick(barcode) {
-    if (!currentOrder || currentOrder.status === '완료') return;
-
-    itemToEdit = pickingItems.find(item => item.barcode === barcode);
-    if (!itemToEdit) return;
-
-    const editModal = document.getElementById('edit-quantity-modal');
-    document.getElementById('edit-modal-product-name').textContent = itemToEdit.product_name;
-    document.getElementById('edit-modal-barcode').textContent = `바코드: ${itemToEdit.barcode}`;
-    const editInput = document.getElementById('edit-quantity-input');
-    editInput.value = itemToEdit.picked_quantity || 0;
-    editInput.max = itemToEdit.expected_quantity;
-
-    editModal.style.display = 'flex';
-    editInput.focus();
-    editInput.select();
-}
-
-async function handleSaveEditedQuantity() {
-    const editInput = document.getElementById('edit-quantity-input');
-    const newQuantity = parseInt(editInput.value, 10);
-
-    if (!itemToEdit || isNaN(newQuantity) || newQuantity < 0) {
-        alert('올바른 수량을 입력하세요.');
-        return;
-    }
-
-    if (newQuantity > itemToEdit.expected_quantity) {
-        alert('지시수량보다 많습니다.');
-        return;
-    }
-
-    const oldQuantity = itemToEdit.picked_quantity || 0;
-    const quantityChange = newQuantity - oldQuantity;
+    if (!scannedCode) { setStatusMessage('바코드를 입력하세요.', 'error'); return; }
 
     try {
-        await supabaseClient.from('picking_items').update({ picked_quantity: newQuantity }).eq('id', itemToEdit.id);
+        const { data: products, error: productError } = await supabaseClient
+            .from('products')
+            .select('*')
+            .eq('channel_id', selectedChannelId)
+            .or(`barcode.eq.${scannedCode},product_code.eq.${scannedCode}`)
+            .limit(1);
 
-        const newTotalPicked = (currentOrder.total_picked_quantity || 0) + quantityChange;
-        const newStatus = newTotalPicked >= currentOrder.total_expected_quantity ? '완료' : '검수중';
-        const { data: updatedOrder } = await supabaseClient.from('picking_orders').update({ total_picked_quantity: newTotalPicked, status: newStatus }).eq('id', currentOrder.id).select().single();
-
-        itemToEdit.picked_quantity = newQuantity;
-        currentOrder.total_picked_quantity = updatedOrder.total_picked_quantity;
-        currentOrder.status = updatedOrder.status;
-
-        playSound('productscan-sound');
-        setStatusMessage(`[${itemToEdit.product_name}] 수량이 ${newQuantity}(으)로 수정되었습니다.`, 'success');
-        updateProgress();
-        renderPickingItems();
+        if (productError || !products || products.length === 0) {
+            setStatusMessage(`[${scannedCode}] 상품을 찾을 수 없습니다.`, 'error');
+            barcodeInput.value = '';
+            barcodeInput.focus();
+            return;
+        }
         
-        if (currentOrder.status === '완료') handleOrderCompletion();
+        const product = products[0];
 
+        if (multipleQuantityCheckbox.checked) {
+            productForQuantityModal = product;
+            quantityModal.style.display = 'flex';
+            quantityModalInput.value = '';
+            setTimeout(() => {
+                quantityModalInput.focus();
+            }, 100);
+        } else {
+            await processAndRecordScan(product, 1);
+        }
     } catch (error) {
-        playSound('error-sound');
-        setStatusMessage(`수정 오류: ${error.message}`, 'error');
+        console.error('상품 조회 중 오류:', error);
+        setStatusMessage(`오류 발생: ${error.message}`, 'error');
     } finally {
-        document.getElementById('edit-quantity-modal').style.display = 'none';
-        itemToEdit = null;
+        barcodeInput.value = '';
+        if (!multipleQuantityCheckbox.checked) {
+            barcodeInput.focus();
+        }
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const selectedChannelId = localStorage.getItem('selectedChannelId');
-    const selectedChannelName = localStorage.getItem('selectedChannelName');
+// --- 이벤트 리스너 ---
+locationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleLocationSubmit(); } });
+locationSubmitButton.addEventListener('click', handleLocationSubmit);
+barcodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleBarcodeScan(); } });
+barcodeSubmitButton.addEventListener('click', handleBarcodeScan);
 
-    (async () => {
-        if (!selectedChannelId) {
-            alert('채널이 선택되지 않았습니다. 선택 페이지로 이동합니다.');
-            window.location.href = 'index.html';
-            return;
+locationClearButton.addEventListener('click', () => {
+    locationInput.value = '';
+    locationInput.focus();
+});
+
+barcodeClearButton.addEventListener('click', () => {
+    barcodeInput.value = '';
+    barcodeInput.focus();
+});
+
+logoutButton.addEventListener('click', async () => {
+    if (confirm('로그아웃하시겠습니까?')) {
+        await supabaseClient.auth.signOut();
+        localStorage.removeItem('selectedChannelId');
+        localStorage.removeItem('selectedChannelName');
+        window.location.href = 'login.html';
+    }
+});
+
+changeChannelButton.addEventListener('click', () => { if (confirm('채널 선택 화면으로 돌아가시겠습니까?')) { window.location.href = 'index.html'; } });
+
+refreshButton.addEventListener('click', async () => {
+    setStatusMessage('데이터를 새로고침합니다...', 'info', false);
+    const locationCode = locationInput.value.trim().toUpperCase();
+    await loadLocations();
+    if (locationCode && validLocations.has(locationCode)) { await loadScanData(locationCode); }
+    await updateProgress();
+    setStatusMessage('새로고침 완료.', 'success', false);
+});
+
+resetQuantityButton.addEventListener('click', async () => {
+    if (!confirm(`[${selectedChannelName}] 채널의 모든 실사수량을 0으로 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다!`)) return;
+    try {
+        const { error } = await supabaseClient.from('inventory_scans').update({ quantity: 0 }).eq('channel_id', selectedChannelId);
+        if (error) throw error;
+        setStatusMessage('모든 실사수량이 0으로 초기화되었습니다.', 'success');
+        const locationCode = locationInput.value.trim().toUpperCase();
+        if (locationCode) { await loadScanData(locationCode); }
+        await updateProgress();
+    } catch (error) {
+        console.error('초기화 실패:', error);
+        setStatusMessage(`초기화 실패: ${error.message}`, 'error');
+    }
+});
+
+// --- 모달 로직 ---
+scanResultsContainer.addEventListener('click', async (e) => {
+    const row = e.target.closest('tr');
+    if (!row) return;
+    const productCode = row.dataset.productCode;
+    currentProductForModal = currentScanData.find(item => item.product_code === productCode);
+    
+    if (currentProductForModal) {
+        // 모달의 기본 정보를 먼저 표시합니다.
+        modalProductName.textContent = currentProductForModal.product_name || '알 수 없는 상품';
+        modalQuantityInput.value = currentProductForModal.quantity;
+        modalBarcode.textContent = `상품코드: ${productCode} | 전체 바코드 조회 중...`;
+        editModal.style.display = 'flex';
+        modalQuantityInput.focus();
+        modalQuantityInput.select();
+
+        try {
+            // DB에서 해당 상품코드의 모든 바코드를 조회합니다.
+            const { data: allProducts, error } = await supabaseClient
+                .from('products')
+                .select('barcode')
+                .eq('channel_id', selectedChannelId)
+                .eq('product_code', productCode);
+
+            if (error) throw error;
+
+            if (allProducts && allProducts.length > 0) {
+                const barcodeList = allProducts.map(p => p.barcode).join(', ');
+                modalBarcode.textContent = `상품코드: ${productCode} | 전체 바코드: ${barcodeList}`;
+            } else {
+                modalBarcode.textContent = `상품코드: ${productCode} | 바코드: ${currentProductForModal.barcode || 'N/A'}`;
+            }
+        } catch (dbError) {
+            console.error("전체 바코드 조회 실패:", dbError);
+            modalBarcode.textContent = `상품코드: ${productCode} | 바코드: ${currentProductForModal.barcode || 'N/A'} (목록 조회 실패)`;
         }
-        const { data: { session }, error } = await supabaseClient.auth.getSession();
-        if (error || !session) {
-            alert('로그인이 필요합니다.');
-            window.location.href = 'login.html';
-            return;
-        }
-        const h1 = document.querySelector('header h1');
-        if(h1) h1.textContent = `${selectedChannelName} 출고 검수`;
-    })();
+    }
+});
 
-    const orderInput = document.getElementById('order-input');
-    const orderSubmitButton = document.getElementById('order-submit-button');
-    const barcodeInput = document.getElementById('barcode-input');
-    const barcodeSubmitButton = document.getElementById('barcode-submit-button');
-    const orderClearButton = document.getElementById('order-clear-button');
-    const barcodeClearButton = document.getElementById('barcode-clear-button');
-    const changeChannelButton = document.getElementById('change-channel-button');
-    const logoutButton = document.getElementById('logout-button');
-    const quantityModal = document.getElementById('quantity-modal');
-    const quantityInput = document.getElementById('quantity-input');
-    const modalConfirmButton = document.getElementById('modal-confirm-button');
-    const modalCancelButton = document.getElementById('modal-cancel-button');
-    const resetOrderButton = document.getElementById('reset-order-button');
-    const refreshButton = document.getElementById('refresh-button');
-    const pickingItemsContainer = document.getElementById('picking-items-container');
-    const editQuantityModal = document.getElementById('edit-quantity-modal');
-    const editModalSaveButton = document.getElementById('edit-modal-save-button');
-    const editModalCancelButton = document.getElementById('edit-modal-cancel-button');
-    const editQuantityInput = document.getElementById('edit-quantity-input');
 
-    if(orderInput) orderInput.addEventListener('keydown', e => e.key === 'Enter' && handleOrderSubmit());
-    if(orderSubmitButton) orderSubmitButton.addEventListener('click', handleOrderSubmit);
-    if(barcodeInput) barcodeInput.addEventListener('keydown', e => e.key === 'Enter' && handleBarcodeScan());
-    if(barcodeSubmitButton) barcodeSubmitButton.addEventListener('click', handleBarcodeScan);
-    if(orderClearButton) {
-        orderClearButton.addEventListener('click', () => {
-            if(orderInput) {
-                orderInput.value = '';
-                orderInput.focus();
-            }
-        });
+modalSaveButton.addEventListener('click', async () => {
+    const newQuantity = parseInt(modalQuantityInput.value, 10);
+    if (isNaN(newQuantity) || newQuantity < 0) { alert('유효한 숫자를 입력하세요.'); return; }
+    try {
+        const { error } = await supabaseClient.from('inventory_scans').update({ quantity: newQuantity, created_at: new Date().toISOString() }).eq('id', currentProductForModal.id);
+        if (error) throw error;
+        setStatusMessage(`[${currentProductForModal.product_name}]의 수량이 ${newQuantity}으로 수정되었습니다.`, 'success');
+        await loadScanData(locationInput.value.trim().toUpperCase());
+        await updateProgress();
+        editModal.style.display = 'none';
+    } catch (error) {
+        console.error('수량 수정 실패:', error);
+        setStatusMessage(`수량 수정 실패: ${error.message}`, 'error');
     }
-    if(barcodeClearButton) {
-        barcodeClearButton.addEventListener('click', () => {
-            if(barcodeInput) {
-                barcodeInput.value = '';
-                barcodeInput.focus();
-            }
-        });
-    }
-    if(changeChannelButton) {
-        changeChannelButton.addEventListener('click', () => {
-            if (confirm('채널 선택 화면으로 돌아가시겠습니까? 현재 작업 내용은 저장되지 않습니다.')) {
-                localStorage.removeItem('selectedChannelId');
-                localStorage.removeItem('selectedChannelName');
-                window.location.href = 'index.html';
-            }
-        });
-    }
-    if(logoutButton) {
-        logoutButton.addEventListener('click', async () => {
-            if (confirm('로그아웃하시겠습니까?')) {
-                await supabaseClient.auth.signOut();
-                localStorage.clear();
-                window.location.href = 'login.html';
-            }
-        });
-    }
-    if(resetOrderButton) resetOrderButton.addEventListener('click', handleResetOrder);
-    if(refreshButton) refreshButton.addEventListener('click', handleOrderSubmit);
+});
 
-    // 상품 수량 수정 기능 비활성화
-    /*
-    if (pickingItemsContainer) {
-        pickingItemsContainer.addEventListener('click', (e) => {
-            const row = e.target.closest('tr');
-            if (row && row.dataset.barcode) {
-                handleItemRowClick(row.dataset.barcode);
-            }
-        });
-    }
-    */
+modalCancelButton.addEventListener('click', () => { editModal.style.display = 'none'; });
+modalQuantityInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); modalSaveButton.click(); } });
+editModal.addEventListener('click', (e) => { if (e.target === editModal) { editModal.style.display = 'none'; } });
 
-    if(modalConfirmButton) {
-        modalConfirmButton.addEventListener('click', async () => {
-            const qty = parseInt(quantityInput.value, 10);
-            if (itemForModal && qty > 0) {
-                await processQuantityUpdate(itemForModal, qty);
-            }
-            quantityModal.style.display = 'none';
-            itemForModal = null;
-            
-            document.getElementById('barcode-input').focus();
-        });
+// 복수 수량 입력 모달 이벤트 리스너
+quantityConfirmButton.addEventListener('click', async () => {
+    const quantityToAdd = parseInt(quantityModalInput.value, 10);
+    if (isNaN(quantityToAdd) || quantityToAdd <= 0) {
+        alert('1 이상의 유효한 숫자를 입력하세요.');
+        return;
     }
-    if(modalCancelButton) {
-        modalCancelButton.addEventListener('click', () => {
-            quantityModal.style.display = 'none';
-            itemForModal = null;
+    if (productForQuantityModal) {
+        await processAndRecordScan(productForQuantityModal, quantityToAdd);
+    }
+    quantityModal.style.display = 'none';
+    productForQuantityModal = null;
+    barcodeInput.focus();
+});
 
-            document.getElementById('barcode-input').focus();
-        });
+quantityCancelButton.addEventListener('click', () => {
+    quantityModal.style.display = 'none';
+    productForQuantityModal = null;
+    barcodeInput.focus();
+});
+
+quantityModalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        quantityConfirmButton.click();
     }
-    if(quantityInput) {
-        quantityInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') modalConfirmButton.click();
-        });
-    }
-    if(editModalSaveButton) editModalSaveButton.addEventListener('click', handleSaveEditedQuantity);
-    if(editModalCancelButton) {
-        editModalCancelButton.addEventListener('click', () => {
-            editQuantityModal.style.display = 'none';
-            itemToEdit = null;
-        });
-    }
-    if(editQuantityInput) {
-        editQuantityInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') editModalSaveButton.click();
-        });
+});
+
+quantityModal.addEventListener('click', (e) => {
+    if (e.target === quantityModal) {
+        quantityModal.style.display = 'none';
+        productForQuantityModal = null;
+        barcodeInput.focus();
     }
 });
