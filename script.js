@@ -203,43 +203,31 @@ async function handleLocationSubmit() {
     }
 }
 
+
+// --- [추가] 오프라인 저장소 키 ---
+const OFFLINE_QUEUE_KEY = 'inventory_offline_queue';
+
+// --- [교체] 스캔 처리 로직 (동시성 충돌 해결 및 오프라인 감지) ---
 async function processAndRecordScan(product, quantityToAdd) {
     const locationCode = locationInput.value.trim().toUpperCase();
     const productCode = product.product_code;
 
+    // 1. 오프라인 상태인지 먼저 감지
+    if (!navigator.onLine) {
+        saveToOfflineQueue(locationCode, product, quantityToAdd);
+        return;
+    }
+
     try {
-        const { data: existingScan, error: scanError } = await supabaseClient
-            .from('inventory_scans')
-            .select('id, quantity')
-            .eq('channel_id', selectedChannelId)
-            .eq('location_code', locationCode)
-            .eq('product_code', productCode)
-            .is('deleted_at', null)
-            .maybeSingle();
+        // 2. JS에서 기존 수량을 읽지 않고, 아까 만든 DB 함수(RPC)에 더할 수량만 보냅니다. (동시 덮어쓰기 원천 차단)
+        const { error: rpcError } = await supabaseClient.rpc('add_scan_quantity', {
+            p_channel_id: selectedChannelId,
+            p_location_code: locationCode,
+            p_product_code: productCode,
+            p_quantity: quantityToAdd
+        });
 
-        if (scanError) throw scanError;
-
-        if (existingScan) {
-            const newQuantity = existingScan.quantity + quantityToAdd;
-            const { error: updateError } = await supabaseClient
-                .from('inventory_scans')
-                .update({ quantity: newQuantity, created_at: new Date().toISOString() })
-                .eq('id', existingScan.id);
-            
-            if (updateError) throw updateError;
-
-        } else {
-            const { error: insertError } = await supabaseClient
-                .from('inventory_scans')
-                .insert({
-                    channel_id: selectedChannelId,
-                    location_code: locationCode,
-                    product_code: productCode,
-                    quantity: quantityToAdd,
-                    expected_quantity: 0 
-                });
-            if (insertError) throw insertError;
-        }
+        if (rpcError) throw rpcError;
         
         setStatusMessage(`[${product.product_name}] | 수량: ${quantityToAdd} | 스캔 완료`, 'success');
         
@@ -248,7 +236,12 @@ async function processAndRecordScan(product, quantityToAdd) {
 
     } catch (error) {
         console.error('스캔 처리 중 오류:', error);
-        setStatusMessage(`오류 발생: ${error.message}`, 'error');
+        // DB 연결 오류 또는 인터넷 끊김 시 에러 캐치하여 오프라인 큐로 보냄
+        if (error.message === 'Failed to fetch' || error.message.includes('NetworkError')) {
+            saveToOfflineQueue(locationCode, product, quantityToAdd);
+        } else {
+            setStatusMessage(`오류 발생: ${error.message}`, 'error');
+        }
     }
 }
 
@@ -440,3 +433,78 @@ quantityModal.addEventListener('click', (e) => {
         barcodeInput.focus();
     }
 });
+
+// ============================================================================
+// --- [신규 기능 추가] 오프라인 감지 및 실시간 동기화 (기존 코드 훼손 없음) ---
+// ============================================================================
+
+// [오프라인] 통신 실패 시 로컬 스토리지에 데이터 보관
+function saveToOfflineQueue(locationCode, product, quantity) {
+    let queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+    queue.push({
+        channel_id: selectedChannelId,
+        location_code: locationCode,
+        product: product,
+        quantity: quantity,
+        timestamp: new Date().toISOString()
+    });
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    setStatusMessage(`[오프라인 보관] ${product.product_name} (${quantity}개) - 온라인 복구 시 전송됩니다.`, 'error', false);
+}
+
+// [오프라인] 인터넷 연결 복구 시 보관된 데이터를 DB로 밀어넣기
+async function syncOfflineScans() {
+    let queue = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]');
+    if (queue.length === 0) return;
+
+    setStatusMessage(`인터넷 연결됨! 보관된 데이터(${queue.length}건) 동기화 중...`, 'info', false);
+
+    let successCount = 0;
+    let remainingQueue = [];
+
+    for (const item of queue) {
+        try {
+            const { error } = await supabaseClient.rpc('add_scan_quantity', {
+                p_channel_id: item.channel_id,
+                p_location_code: item.location_code,
+                p_product_code: item.product.product_code,
+                p_quantity: item.quantity
+            });
+            if (error) throw error;
+            successCount++;
+        } catch (err) {
+            console.error('동기화 실패:', err);
+            remainingQueue.push(item); // 실패한 건 다시 큐에 남겨둠
+        }
+    }
+
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
+
+    if (successCount > 0) {
+        setStatusMessage(`오프라인 데이터 ${successCount}건 전송 완료!`, 'success');
+        const currentLocation = locationInput.value.trim().toUpperCase();
+        if (currentLocation && validLocations.has(currentLocation)) {
+            await loadScanData(currentLocation);
+        }
+        await updateProgress();
+    }
+}
+
+// 브라우저가 오프라인 -> 온라인으로 바뀌는 순간을 감지하여 자동 동기화 실행
+window.addEventListener('online', syncOfflineScans);
+
+// [실시간] 다른 사람이 내가 보는 로케이션을 스캔하면 화면 자동 새로고침
+supabaseClient
+    .channel('public:inventory_scans')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_scans' }, payload => {
+        const currentLocation = locationInput.value.trim().toUpperCase();
+        // 채널이 같고, 변경된 데이터의 로케이션이 내가 띄워놓은 로케이션과 일치할 때만
+        if (payload.new && payload.new.channel_id === selectedChannelId && payload.new.location_code === currentLocation) {
+            console.log('다른 작업자의 스캔을 감지하여 화면을 갱신합니다.');
+            loadScanData(currentLocation);
+            updateProgress();
+            // 선택 사항: 아래 주석을 풀면 다른 사람이 스캔할 때 알림 메시지를 띄울 수 있습니다.
+            // setStatusMessage('다른 작업자에 의해 실사 수량이 업데이트되었습니다.', 'info', false);
+        }
+    })
+    .subscribe();
